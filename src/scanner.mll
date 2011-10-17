@@ -42,12 +42,12 @@ rule token = parse
 | ';'					{ SEMI }
 | ':'					{ COLON }
 
-| '('					{ L_PAREN }
-| ')'					{ R_PAREN }
-| '['					{ L_BRACKET }
-| ']'					{ R_BRACKET }
-| '{'					{ L_BRACE }
-| '}' 					{ R_BRACE }
+| '('					{ LPAREN }
+| ')'					{ RPAREN }
+| '['					{ LBRACKET }
+| ']'					{ RBRACKET }
+| '{'					{ LBRACE }
+| '}' 					{ RBRACE }
 
 
   

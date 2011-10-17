@@ -1,11 +1,14 @@
 { open Parser }
 
 rule token = parse
-  [' ' '\t' '\r'] { token lexbuf }
-| '\n' 					{ NEWLINE }
+  [' ' '\t' '\r'] { token lexbuf}
 
+
+(* Comment *)
+| "/*" 					{ comment lexbuf }
+| "//"					{ sl_comment lexbuf }
   
-/* Binary Operators */
+(* Binary Operators *)
 | '+' 					{ PLUS }
 | '-' 					{ MINUS }
 | '*' 					{ TIMES }
@@ -25,12 +28,11 @@ rule token = parse
 | ',' 					{ COMMA }
 
   
-/* Unary Operators */
+(* Unary Operators *)
 | "!" 					{ NOT }  
-/* Need to hande unary minus as well */
-  
-  
-  
+(* Need to hande unary minus as well *)
+
+
 | '=' 					{ ASN }
  
   
@@ -46,13 +48,10 @@ rule token = parse
 | ']'					{ R_BRACKET }
 | '{'					{ L_BRACE }
 | '}' 					{ R_BRACE }
-| "/*"					{ COM_BEGIN }
-| "*/"					{ COM_END }
-| "//" 					{ COM_LINE }
 
 
   
-/* keywords */
+(* keywords *)
 | "if" 					{ IF }
 | "else" 				{ ELSE }
 | "while" 				{ WHILE }
@@ -64,8 +63,8 @@ rule token = parse
 | "const" 				{ CONST }
   
 (* It would be nice if the Int constructor could take an integer argument directly from the scanner*)
-| "unsigned("['0'-'9']+')' as lit 			{ UNSIGNED(string.sub lit 4 (String.length lit - 5), 0, true) }
-| "int("['0'-'9']+')' as lit 	            { INT(string.sub lit 4 (String.length lit - 5), 0, true) }
+| "unsigned("['0'-'9']+')' as lit 	{ UNSIGNED(String.sub lit 4 (String.length lit - 5), 0, true) }
+| "int("['0'-'9']+')' as lit 	        { INT(String.sub lit 4 (String.length lit - 5), 0, true) }
   
 | "struct"				{ STRUCT }
 | "return" 				{ RET }
@@ -75,3 +74,10 @@ rule token = parse
 | "ASYNC" 				{ ASYNC }
 | eof 					{ EOF }
 
+and comment = parse
+  "*/"					{ token lexbuf }
+| _					{ comment lexbuf }
+
+and sl_comment = parse
+  '\n'					{ token lexbuf }
+| _					{ sl_comment lexbuf }

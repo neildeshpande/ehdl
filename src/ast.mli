@@ -18,18 +18,19 @@ type param = {t : types; p : string}
 type paramList = Params of param list
 
 type expr = (* Expressions *)
-    Literal of int (* 42 *)
+      Literal of int (* 42 *)
     | Id of string (* foo *)
     | Binop of expr * operator * expr (* a + b *)
     | Assign of string * expr (* foo = 42 *)
     | Call of string * expr list (* foo(1, 25 *)
     | Noexpr (* for (;;) *)
 
-type labelstmt = Case of int * stmt
-  				| Default of stmt
+type labelstmt = 
+      Case of int * stmt
+    | Default of stmt
 
 type stmt = (* Statements *)
-    Block of stmt list (* { ... } *)
+      Block of stmt list (* { ... } *)
     | Expr of expr (* foo = bar + 3; *)
     | Return of expr (* return 42; *)
     | If of expr * stmt * stmt (* if (foo == 42) {} else {} *)
@@ -51,4 +52,4 @@ type func_decl = {
   
 (* Every variable is an int. We assume that the OCaml int can hold all our ints *)
 
-   
+type program = string list * func_decl list (* global vars, funcs *)

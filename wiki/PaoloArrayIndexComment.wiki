@@ -1,4 +1,4 @@
-#summary One-sentence summary of this page.
+#Paolo and Mashooq's discussion about array indices 
 
 == Paolo and Mashooq's discussion about variables and array indices == 
 

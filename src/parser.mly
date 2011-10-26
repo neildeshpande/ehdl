@@ -1,14 +1,14 @@
-{open Ast }
+%{open Ast %}
 
 %token PLUS MINUS TIMES DIVIDE MODULO LT GT LTE GTE EQ NEQ 
 %token OR AND XOR SHL SHR COMMA NOT ASN DOT
 %token SEMI COLON LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE
-%token IF ELSE WHILE FOR SWITCH CASE C_OR BREAK CONST INT UNSIGNED
-%token STRUCT RET POS ASYNC EOF
+%token IF ELSE WHILE FOR SWITCH CASE C_OR CONST INT UNSIGNED
+%token ENUM STRUCT RET POS ASYNC EOF
 %token <int> NUM
 %token <string> ID
 
-(*Need to check precedence in C!*)
+/*Need to check precedence in C!*/
 %nonassoc NOELSE
 %nonassoc ELSE
 %right NOT
@@ -20,6 +20,7 @@
 %left OR XOR
 %left AND
 %left SHL SHR
+%nonassoc UMINUS /* Highest precedence for unary minus! */
 
 %start program
 %type <Ast.program> program

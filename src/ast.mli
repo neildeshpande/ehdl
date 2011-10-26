@@ -1,7 +1,7 @@
 type operator = Add | Sub | Mul | Div | Mod| Lt | Gt | Lte | Gte | Eq | Neq | Or | And | Xor | Shl | Shr | Comma
   
-type bus = {size : int; value : int; undefined : bool}
-type types = Int of bus | Unsign of bus
+type bus = {size : int; value : int; unigned: bool}
+type types = Int of bus | Unsigned of bus
   
 (* Anonymous structs are not supported.
    Structs are broken down into their components by the parser

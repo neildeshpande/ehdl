@@ -1,55 +1,43 @@
-type operator = Add | Sub | Mul | Div | Mod| Lt | Gt | Lte | Gte | Eq | Neq | Or | And | Xor | Shl | Shr | Comma
-  
-type bus = {size : int; value : int; unigned: bool}
-type types = Int of bus | Unsigned of bus
-  
-(* Anonymous structs are not supported.
-   Structs are broken down into their components by the parser
-   e.g.: struct foo{
-               int(4) bar;
-               int(10) baz;
-              } myS;
-   
-   will be broken by the parser into two ints foo.bar and foo.baz
-   int
-   *)
+type operator = Add | Sub | Mul | Div | Mod| Lt | Gt | Lte | Gte | Eq | Neq | Or | And | Xor | Shl | Shr | Not | Umin
 
-type param = {t : types; p : string}
-type paramList = Params of param list
+type bus = {name : string; size : int; init : int; unsigned : bool; async : bool}
 
-type expr = (* Expressions *)
-      Literal of int (* 42 *)
-    | Id of string (* foo *)
-    | Binop of expr * operator * expr (* a + b *)
-    | Assign of string * expr (* foo = 42 *)
-    | Call of string * expr list (* foo(1, 25 *)
-    | Noexpr (* for (;;) *)
+type gdecl =
+  Const of bus * int (* bus * constant value *)	
 
-type labelstmt = 
-      Case of int * stmt
-    | Default of stmt
+type locals =
+  Bdecl of bus
+| Adecl of bus * int (* bus * array length *)
 
-type stmt = (* Statements *)
-      Block of stmt list (* { ... } *)
-    | Expr of expr (* foo = bar + 3; *)
-    | Return of expr (* return 42; *)
-    | If of expr * stmt * stmt (* if (foo == 42) {} else {} *)
-    | For of expr * expr * expr * stmt (* for (i=0;i<10;i=i+1) { ... } *)
-    | While of expr * stmt (* while (i<10) { i = i + 1 } *)
-    | Switch of expr * (labelstmt list)
-    
-  
-type arg = Arg of expr
-type args = Args of arg list
-  
-type func_decl = {
-	fname : string; (* Name of the function *)
-	formals : string list; (* Formal argument names *)
-	locals : string list; (* Locally defined variables *)
-	body : stmt list;
+type expr =
+  Num of int
+| Id of string				(* Bus name *)
+| Barray of string * expr		(* Array reference *)
+| Subbus of string * int * int		(* Subbus reference *)
+| Unop of operator * expr		(* Unary operations *)
+| Binop of expr * operator * expr	(* Binary operations *)
+| Basn of string * expr			(* bus name * value *)
+| Aasn of string * expr * expr		(* Array name * array index * value *)
+| Call of string * expr list		(* function name * arguments id *)
+
+
+type stmt =
+  Block of stmt list
+| Expr of expr
+| Pos of expr		(*Insert a rule that avoids having Pos inside if else!*)
+| If of expr * stmt * stmt 
+| For of expr * expr * expr * stmt 
+| While of expr * stmt
+| Switch of expr * stmt	(* switch (expr) {...} *)
+| Case of expr list * stmt   (* case const-expr | const-expr : ... *)
+
+type fbody =  locals list * stmt list
+
+type fdecl = {
+  portout : bus list;
+  fname   : string;
+  portin  : bus list;
+  body    : fbody;
 }
-  
-  
-(* Every variable is an int. We assume that the OCaml int can hold all our ints *)
 
-type program = string list * func_decl list (* global vars, funcs *)
+type program = gdecl list * fdecl list

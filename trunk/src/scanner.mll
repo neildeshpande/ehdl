@@ -1,8 +1,7 @@
 { open Parser }
 
 rule token = parse
-  [' ' '\t' '\r' '\n'] { token lexbuf}
-
+  [' ' '\t' '\r' '\n']			{ token lexbuf }
 
 (* Comment *)
 | "/*" 					{ comment lexbuf }
@@ -24,21 +23,29 @@ rule token = parse
 | "^" 					{ XOR }
 | "<<"					{ SHL }
 | ">>" 					{ SHR }
-| ',' 					{ COMMA }
 (* Unary Operators *)
 | "!" 					{ NOT }  
 (* Need to hande unary minus as well *)
-| '=' 					{ ASN }
-(* Punctuation *)  
-| '.' 					{ DOT }
+
+(* types keywords *)
+| "const"				{ CONST }
+| "uint("['0'-'9']+')' as lit	        { UINT(int_of_string (String.sub lit 5 (String.length lit - 6))) }
+
+| "int("['0'-'9']+')' as lit       	{ INT(int_of_string (String.sub lit 4 (String.length lit - 5))) }
+| ['0'-'9']+ as lit                     		  { NUM(int_of_string lit) }
+| ['a'-'z''A'-'Z'] ['a'-'z' 'A'-'Z' '_' '0'-'9']* as lit  { ID(lit) }
+
+| '='					{ ASN }
+| ','					{ COMMA }
 | ';'					{ SEMI }
 | ':'					{ COLON }
+
 | '('					{ LPAREN }
 | ')'					{ RPAREN }
 | '['					{ LBRACKET }
 | ']'					{ RBRACKET }
 | '{'					{ LBRACE }
-| '}' 					{ RBRACE }
+| '}'					{ RBRACE }
 (* keywords *)
 | "if" 					{ IF }
 | "else" 				{ ELSE }
@@ -47,19 +54,11 @@ rule token = parse
 | "switch" 				{ SWITCH }
 | "case"				{ CASE }
 | '|' 					{ C_OR }
-| "const" 				{ CONST }
-(* It would be nice if the Int constructor could take an integer argument directly from the scanner*)
-| "unsigned("['0'-'9']+')' as lit 	{ UNSIGNED(int_of_string (String.sub lit 9 (String.length lit - 10)), 0, true) }
-| "int("['0'-'9']+')' as lit 	        { INT(int_of_string (String.sub lit 4 (String.length lit - 5)), 0, false) }
-| "enum" 				{ ENUM }  
-| "struct"				{ STRUCT }
-| "return" 				{ RET }
-| ['0'-'9']+ as lit			{ NUM(int_of_string lit) }
-| ['a'-'z''A'-'Z'] ['a'-'z' 'A'-'Z' '_' '0'-'9']* as lit  { ID(lit) }
-| "POS" 				{ POS }
-| "ASYNC" 				{ ASYNC }
+| "POS"					{ POS }
+| "ASYNC"				{ ASYNC }
+
 | eof 					{ EOF }
-| _ as char 				{ { raise (Failure("illegal character " ^ Char.escaped char)) }
+| _ as char 				{ raise (Failure("illegal character " ^ Char.escaped char)) }
 
 and comment = parse
   "*/"					{ token lexbuf }
@@ -68,3 +67,4 @@ and comment = parse
 and sl_comment = parse
   '\n'					{ token lexbuf }
 | _					{ sl_comment lexbuf }
+

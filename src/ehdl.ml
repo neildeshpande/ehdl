@@ -56,7 +56,7 @@ let create_component components fdecl  =
        (* need to print out the locals here *) 
        let (l,s) = List.fold_left translate_stmt ([],"") (snd fdecl.body)
        in let ss = delim_sprt ", " (List.rev l)
-       in "\tprocess(" ^ ss ^ ")\n\tbegin\n\t\t" ^ s ^ "\n\tend process"   	    
+       in "\tprocess (" ^ ss ^ ")\n\tbegin\n\t\t" ^ s ^ "\n\tend process;"   	    
 
    in let arch fdecl = (*arch *)
       "architecture e_" ^ fdecl.fname ^ " of  " ^ fdecl.fname ^ " is \n\nbegin\n\n"

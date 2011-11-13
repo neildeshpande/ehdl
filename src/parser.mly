@@ -39,21 +39,21 @@ gdecl :
 
 bdecl :
   async_opt spec ID init_opt	  { { name = $3;
-						    	   size = fst $2;
-						    	   init = $4;
-						    	   unsigned = snd $2;
-						    	   async = $1 } }
+				      size = fst $2;
+				      init = $4;
+				      unsigned = snd $2;
+				      async = $1 } }
 async_opt :
 		{ false }
-               | ASYNC { true }
+| ASYNC 	{ true }
 
 spec :
-               INT	{ ($1,false) }
-	       | UINT { ($1, true) }
+  INT		{ ($1,false) }
+| UINT 		{ ($1, true) }
 
 init_opt :
 		{ 0 }
-               | ASN NUM	{ $2 }
+| ASN NUM	{ $2 }
 
 /* a "function declarator" is a "list of output bus", a "list of input bus" and a "body" */
 fdecl : 
@@ -76,12 +76,12 @@ port_rlist :
 
 /* the "function body" is the list of "local variables" and a list of "statements"  */
 fbody :
-              { [], [] }
-	    | fbody local	      { ($2 :: fst $1), snd $1 }
-	    | fbody stmt            { fst $1, ($2 :: snd $1) }
+			{ [], [] }
+| fbody local		{ ($2 :: fst $1), snd $1 }
+| fbody stmt            { fst $1, ($2 :: snd $1) }
 
 local :
-  vdecl SEMI			{ $1 }
+  vdecl SEMI		{ $1 }
 
 vdecl :
   bdecl			{ Bdecl($1) }  
@@ -89,10 +89,10 @@ vdecl :
 
 adecl :
   async_opt spec ID LBRACKET NUM RBRACKET init_opt { ( { name = $3;
-							    	   size = fst $2;
-							    	   init = $7;
-							    	   unsigned = snd $2;
-							    	   async = $1 }, $5 ) }
+					    	         size = fst $2;
+					    	         init = $7;
+					    	         unsigned = snd $2;
+					    	         async = $1 }, $5 ) }
 
 stmt :
   LBRACE stmt_list RBRACE			{ Block(List.rev $2) }
@@ -108,8 +108,8 @@ stmt :
    the dependency of Switch - Case statements */
 
 stmt_list :
-            { [] }
-           | stmt_list stmt { $2 :: $1 }
+			{ [] }
+| stmt_list stmt	{ $2 :: $1 }
 
 expr :
   NUM				{ Num($1) }
@@ -122,7 +122,7 @@ expr :
 | expr MINUS expr		{ Binop($1, Sub, $3) }
 | expr TIMES expr		{ Binop($1, Mul, $3) }
 | expr DIVIDE expr		{ Binop($1, Div, $3) }
-| expr MODULO expr	{ Binop($1, Mod, $3) }
+| expr MODULO expr		{ Binop($1, Mod, $3) }
 | expr LT expr			{ Binop($1, Lt, $3) }
 | expr GT expr			{ Binop($1, Gt, $3) }
 | expr LTE expr			{ Binop($1, Lte, $3) }

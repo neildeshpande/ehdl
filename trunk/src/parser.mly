@@ -57,13 +57,18 @@ init_opt :
 
 /* a "function declarator" is a "list of output bus", a "list of input bus" and a "body" */
 fdecl : 
-  port_list ID LPAREN port_list RPAREN LBRACE fbody RBRACE
+  out_port_list ID LPAREN port_list RPAREN LBRACE fbody RBRACE
 			{ { portout = $1;
 			    fname   = $2;
 			    portin  = $4;
 			    body    = $7 } }
 /* Be careful while translating, to check that the user does not override
   the ports with other local variables!!!! Raise an error! */
+
+/* no need for parens if just one output bus */
+out_port_list:
+   bdecl			{ [$1] }
+ | LPAREN port_list RPAREN {$2}  
 
 port_list :
   port_rlist		{ List.rev($1) }

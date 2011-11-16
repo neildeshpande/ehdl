@@ -32,8 +32,7 @@ rule token = parse
 | "uint("['0'-'9']+')' as lit	        { UINT(int_of_string (String.sub lit 5 (String.length lit - 6))) }
 
 | "int("['0'-'9']+')' as lit       	{ INT(int_of_string (String.sub lit 4 (String.length lit - 5))) }
-| ['0'-'9']+ as lit                     		  { NUM(int_of_string lit) }
-| ['a'-'z''A'-'Z'] ['a'-'z' 'A'-'Z' '_' '0'-'9']* as lit  { ID(lit) }
+
 
 | '='					{ ASN }
 | ','					{ COMMA }
@@ -53,9 +52,11 @@ rule token = parse
 | "for" 				{ FOR }
 | "switch" 				{ SWITCH }
 | "case"				{ CASE }
-| '|' 					{ C_OR }
+| "|" 					{ C_OR }
 | "POS"					{ POS }
 | "ASYNC"				{ ASYNC }
+| ['a'-'z''A'-'Z'] ['a'-'z' 'A'-'Z' '_' '0'-'9']* as lit  { ID(lit) }
+| ['0'-'9']+ as lit                     		  { NUM(int_of_string lit) }
 
 | eof 					{ EOF }
 | _ as char 				{ raise (Failure("illegal character " ^ Char.escaped char)) }

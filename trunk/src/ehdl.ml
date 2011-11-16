@@ -24,9 +24,9 @@ let create_component components fdecl  =
        [] -> p
        | hd::tl -> let typedescr = 
 		     (match hd.size with 
-			   0 -> raise (Failure ("bus size cannot be zero " ))
-		       | 1 -> " std_logic"  
-		       | x -> " std_logic_vector(" ^ string_of_int(hd.size-1) ^ " downto 0)" ) 
+			0 -> raise (Failure ("bus size cannot be zero " ))
+			(* not doing std_logic because then we have to convert 1 to '1' *)
+		  | x -> " std_logic_vector(" ^ string_of_int(hd.size-1) ^ " downto 0)" ) 
 		   in  let s = "\t" ^ hd.name ^ " : "  ^ inOrOut ^ typedescr 
 		       in port_descr_list  (s::p) inOrOut tl
    
@@ -39,35 +39,46 @@ let create_component components fdecl  =
 	     
   (* Evaluate expressions *) 
  in let rec eval e l = match e with
-    Id(i) -> i, i::l (* the list is keeping track of variables for the sensitivity list*) 
-   | Binop(e1,op,e2) -> 
+    Num(i) -> string_of_int i, l 
+    | Id(i) -> i, i::l (* the list is keeping track of variables for the sensitivity list*) 
+    | Binop(e1,op,e2) -> 
      let v1, l = eval e1 l  in let v2, l = eval e2 l 
      in (match op with 
-	 Add  -> v1 ^ " + " ^ v2
-       |Sub  -> v1 ^ " - " ^ v2 
-       |Mul -> v1 ^ " * " ^ v2  
-       |Div  -> v1 ^ " / " ^ v2   
-       |Mod -> v1 ^ "  mod " ^ v2 
-       |Lt    -> v1 ^ " < " ^ v2
-       |Gt    -> v1 ^ " > " ^ v2
-       |Lte  -> v1 ^ " <= " ^ v2
-       |Gte  -> v1 ^ " >= " ^ v2
-       |Eq   -> v1 ^ " = " ^ v2
-       |Neq -> v1 ^ " /= " ^ v2
-       |Or    -> v1 ^ " |" ^ v2
-       |And -> v1 ^ " and " ^ v2
-       |Xor  -> v1 ^ " xor  " ^ v2
-       |Shl  -> v1 ^ " sll " ^ v2 (*check that v2 is an integer, here or parser ? *)
-       |Shr   -> v1 ^ " srl " ^ v2 
-       |x -> raise (Failure ("The operator is not a binary operator "))), l
+	     Add  -> v1 ^ " + " ^ v2
+       | Sub  -> v1 ^ " - " ^ v2 
+       | Mul  -> v1 ^ " * " ^ v2  
+       | Div  -> v1 ^ " / " ^ v2   
+       | Mod  -> v1 ^ "  mod " ^ v2 
+       | Lt   -> v1 ^ " < " ^ v2
+       | Gt   -> v1 ^ " > " ^ v2
+       | Lte  -> v1 ^ " <= " ^ v2
+       | Gte  -> v1 ^ " >= " ^ v2
+       | Eq   -> v1 ^ " = " ^ v2
+       | Neq  -> v1 ^ " /= " ^ v2
+       | Or   -> v1 ^ " |" ^ v2
+       | And  -> v1 ^ " and " ^ v2
+       | Xor  -> v1 ^ " xor  " ^ v2
+       | Shl  -> v1 ^ " sll " ^ v2 (*check that v2 is an integer,here or parser ? *)
+       | Shr  -> v1 ^ " srl " ^ v2 
+       | x    -> raise (Failure ("The operator is not a binary operator "))), l
    | Basn(i, e1) -> let v1, l = eval e1 l in  (i ^ " <= " ^ v1 ^ ";" ) , l
+   | Call(i,e1) ->  raise (Failure ("Call not supported yet " ))
+   
    | x ->  raise (Failure ("Expression not supported yet " ))
-      
+    
  (* statements *)
  in let rec translate_stmt (l,str) stmt = 
       match stmt with  
-	  Block(stmts)  -> List.fold_left translate_stmt (l,str) stmts 
+	  Block(stmts)  -> List.fold_left translate_stmt (l,str) (List.rev stmts) 
 	| Expr(e) -> let s,l = eval e l  in (l, (str ^ s))   
+	| If(e,if_stmt,else_stmt) -> 
+	    let s,l = eval e l 
+	    in let l,if_block = translate_stmt(l,"") if_stmt
+	    in let l,else_block = translate_stmt(l,"") else_stmt
+	    in l, ("if (" ^ s ^ ") then \n\t\t\t" ^ if_block 
+	    (* the tabbing needs to be done programmatically, not manually *)    
+	    ^ "\n\t\telse\n\t\t\t" ^ else_block ^ "\n\t\tend if;") 
+	| Pos(s2) -> raise (Failure ("Pos not supported yet " ))     
 	| x -> 	raise (Failure ("Statement not supported yet " )) 
 
     in let print_process prev (l,s) =  

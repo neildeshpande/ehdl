@@ -5,7 +5,7 @@ type bus = {name : string; size : int; init : int; unsigned : bool; async : bool
 type gdecl =
   Const of bus * int (* bus * constant value *)	
 
-type locals =
+type types =
   Bdecl of bus
 | Adecl of bus * int (* bus * array length *)
 
@@ -31,7 +31,7 @@ type stmt =
 | Switch of expr * stmt	(* switch (expr) {...} *)
 | Case of expr list * stmt   (* case const-expr | const-expr : ... *)
 
-type fbody =  locals list * stmt list
+type fbody =  types list * stmt list
 
 
 type fdecl = {

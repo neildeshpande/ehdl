@@ -41,6 +41,11 @@ let create_component components fdecl  =
  in let rec eval e l = match e with
     Num(i) -> string_of_int i, l 
     | Id(i) -> i, i::l (* the list is keeping track of variables for the sensitivity list*) 
+    | Unop(op,e1) -> let v1, l = eval e1 l in 
+    ( match op with 
+      Umin -> "- " ^ v1  
+    | Not -> "not " ^ v1
+    | x -> raise (Failure ("Unary operator not supported ")) ), l 
     | Binop(e1,op,e2) -> 
      let v1, l = eval e1 l  in let v2, l = eval e2 l 
      in (match op with 
@@ -55,20 +60,20 @@ let create_component components fdecl  =
        | Gte  -> v1 ^ " >= " ^ v2
        | Eq   -> v1 ^ " = " ^ v2
        | Neq  -> v1 ^ " /= " ^ v2
-       | Or   -> v1 ^ " |" ^ v2
+       | Or   -> v1 ^ " or " ^ v2
        | And  -> v1 ^ " and " ^ v2
        | Xor  -> v1 ^ " xor  " ^ v2
        | Shl  -> v1 ^ " sll " ^ v2 (*check that v2 is an integer,here or parser ? *)
        | Shr  -> v1 ^ " srl " ^ v2 
        | x    -> raise (Failure ("The operator is not a binary operator "))), l
-   | Basn(i, e1) -> let v1, l = eval e1 l in  (i ^ " <= " ^ v1 ^ ";" ) , l
+   | Basn(i, e1) -> let v1, l = eval e1 l in  (i ^ " <= " ^ v1 ^ ";\n" ) , l
    | Call(i,e1) ->  raise (Failure ("Call not supported yet " ))
    
    | x ->  raise (Failure ("Expression not supported yet " ))
-    
+
  (* statements *)
  in let rec translate_stmt (l,str) stmt = 
-      match stmt with  
+    (  match stmt with  
 	  Block(stmts)  -> List.fold_left translate_stmt (l,str) (List.rev stmts) 
 	| Expr(e) -> let s,l = eval e l  in (l, (str ^ s))   
 	| If(e,if_stmt,else_stmt) -> 
@@ -76,10 +81,30 @@ let create_component components fdecl  =
 	    in let l,if_block = translate_stmt(l,"") if_stmt
 	    in let l,else_block = translate_stmt(l,"") else_stmt
 	    in l, ("if (" ^ s ^ ") then \n\t\t\t" ^ if_block 
-	    (* the tabbing needs to be done programmatically, not manually *)    
+	    (* the tabbing needs to be done programmatically, not manually. 
+	    I am assuming SAST will tell us the nesting depth *)    
 	    ^ "\n\t\telse\n\t\t\t" ^ else_block ^ "\n\t\tend if;") 
+	| Switch ( e, c_list ) -> 
+	    ( match c_list with 
+	      [] -> l,""
+	     |hd::tl ->       
+	     let s,l = eval e l 
+           in let (e1, stmt) = hd
+           in let s1,l = eval e l in let s2,l = eval e1 l    
+           in let s3 = "if (" ^ s1 ^ " = " ^ s2 ^ ") then \n\t\t\t"  
+           in let l,if_block = translate_stmt (l,"") stmt
+		   in let l,s5 = List.fold_left (translate_case s1) (l,"") tl 	
+		   in l, (s3 ^ if_block ^ s5 ^ "\n\t\tend if;") ) 		      
 	| Pos(s2) -> raise (Failure ("Pos not supported yet " ))     
-	| x -> 	raise (Failure ("Statement not supported yet " )) 
+	| x -> 	raise (Failure ("Statement not supported yet " )) )
+    and translate_case left (l,s) (e,stmt) = 
+      ( match e with 
+     (* SAST needs to check there is atmost one dafault and no duplicate 
+     case expressions *) 
+          Noexpr->   translate_stmt (l,s ^ "\t\telse \n\t\t\t") stmt   
+        | x     ->    let right,l = eval e l 
+         in translate_stmt (l,s ^ "\t\telsif (" ^ left ^ " = " ^ right ^ ") then \n\t\t\t" ) stmt  
+         )
 
     in let print_process prev (l,s) =  
 	 let ss = delim_sprt ", " (List.rev l)

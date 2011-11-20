@@ -37,6 +37,17 @@ type expr_detail =
   
 and expression = expr_detail * types
   
+type stmt = 
+  	Expr of expression
+  | If of expr_detail * stmt * stmt
+  | For of expr_detail * expr_detail * expr_detail * stmt 
+  | While of expr_detail * stmt
+  | Pos of expr_detail
+  | Block of symbol_table * (stmt list)
+  | Switch of expr_detail * stmt	(* switch (expr) {...} *)
+  | Case of (expr_detail list) * stmt   (* case const-expr | const-expr : ... *)
+    
+  
   
 let rec find_variable (scope : symbol_table) name =
 	try
@@ -60,7 +71,11 @@ let check_basn vbus e1 = ()
 let check_aasn vbus e1 e2 = ()
 let check_call actuals env func_decl = ()
 let check_subbus vbus x y = ()
-let check_array_dereference  varray size e1 = ()  
+let check_array_dereference  varray size e1 = ()
+let check_conditional e1 t1 = ()
+let check_pos_expr e1 = ()
+let check_switchable e1 t1 = ()
+  
   
 exception Error of string  
   
@@ -123,4 +138,49 @@ let rec expr env = function
     	Const(cbus, cvalue), Const
   *)  
     	
-  
+let rec stmt env = function
+    Ast.Expr(e) -> Expr(expr env e)
+  | Ast.If(e1, s1, s2) ->
+    	let e1, t1 = expr env e1
+     in check_conditional e1 t1;
+    If(e1, stmt env s1, stmt env s2)
+  | Ast.For(e1, e2, e3, s1) ->
+    	let e1, t1 = expr env e1
+     	and e2, t2 = expr env e2
+     	and e3, t3 = expr env e3
+      in check_conditional e1 t1;
+    For(e1, e2, e3, stmt env s1)
+  | Ast.While(e1, s1) ->
+    	let e1, t1 = expr env e1
+     	in check_conditional e1 t1;
+    	While(e1, stmt env s1)
+  | Ast.Pos(e1) ->
+    	let e1, t1 = expr env e1
+     	in check_pos_expr e1;
+    	Pos(e1)
+  | Ast.Block(slist) ->
+    	(* New scopes: parent is the existing scope, start out empty *)
+		let new_scope = { parent = Some(env.scope); variables = [] }
+	    in
+        (* New environment: same, but with new symbol tables *)
+        let new_env = { env with scope = new_scope}
+        in  
+     	let stmt_list = []
+         in let _ = List.fold_left (
+           fun (env : translation_environment) (actual : Ast.stmt) ->  
+             let s1 = stmt env actual
+             in ignore(s1::stmt_list); new_env) new_env slist
+            in Block(new_scope, stmt_list)
+  | Ast.Switch(e1, s1) ->
+    	let e1, t1 = expr env e1
+     	in check_switchable e1 t1;
+    	Switch(e1, stmt env s1)
+  | Ast.Case(elist, s1) ->
+    	let expr_list = []
+     in let _ = List.fold_left (
+       fun (env : translation_environment) (actual : Ast.expr) ->
+         let e1 = expr env actual
+         in ignore(e1::expr_list); env) env expr_list
+        in Case(expr_list, stmt env s1)
+
+    

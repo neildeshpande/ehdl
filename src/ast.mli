@@ -19,7 +19,7 @@ type expr =
 | Basn of string * expr			(* bus name * value *)
 | Aasn of string * expr * expr		(* Array name * array index * value *)
 | Call of string * expr list		(* function name * arguments id *)
-
+| Noexpr
 
 type stmt =
   Block of stmt list
@@ -28,11 +28,9 @@ type stmt =
 | If of expr * stmt * stmt 
 | For of expr * expr * expr * stmt 
 | While of expr * stmt
-| Switch of expr * stmt	(* switch (expr) {...} *)
-| Case of expr list * stmt   (* case const-expr | const-expr : ... *)
+| Switch of expr *  (expr * stmt) list 	(* switch (expr) {...} *)
 
 type fbody =  locals list * stmt list
-
 
 type fdecl = {
   portout : bus list;

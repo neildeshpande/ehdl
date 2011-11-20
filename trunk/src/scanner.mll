@@ -52,6 +52,7 @@ rule token = parse
 | "for" 				{ FOR }
 | "switch" 				{ SWITCH }
 | "case"				{ CASE }
+| "default"             { DEFAULT }
 | "|" 					{ C_OR }
 | "POS"					{ POS }
 | "ASYNC"				{ ASYNC }

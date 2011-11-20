@@ -105,12 +105,9 @@ stmt :
 | POS LPAREN expr RPAREN SEMI			{ Pos($3) } 
 | IF LPAREN expr RPAREN stmt %prec NOELSE 	{ If($3, $5, Block([]))}
 | IF LPAREN expr RPAREN stmt ELSE stmt    	{ If($3,$5,$7) }
-/*| IF LPAREN expr RPAREN stmt ELSE stmt    { If(($3, $5)::$6) }*/ 
 | FOR LPAREN expr SEMI expr SEMI expr RPAREN stmt  { For($3,$5,$7,$9) }
 | WHILE LPAREN expr RPAREN stmt			{ While($3, $5) }
-| SWITCH LPAREN expr RPAREN LBRACE case_stmt case_list RBRACE{ Switch($3,$6::(List.rev $7)) } 
-/*Ocaml code outside the parser should handle
-   the dependency of Switch - Case statements */
+| SWITCH LPAREN expr RPAREN LBRACE case_stmt case_list RBRACE{ Switch($3,$6::(List.rev $7)) } /* Enforcing at least one case_stmt in the parser so no need to do it later */ 
 
 stmt_list :
 { [] }

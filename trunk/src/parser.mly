@@ -4,7 +4,7 @@
 %token OR AND XOR SHL SHR NOT
 %token IF ELSE WHILE FOR
 %token ASN SEMI LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE COMMA CONST
-%token SWITCH CASE C_OR COLON POS ASYNC EOF
+%token SWITCH CASE DEFAULT C_OR COLON POS ASYNC EOF
 %token <int> NUM INT UINT
 %token <string> ID
 
@@ -105,15 +105,15 @@ stmt :
 | POS LPAREN expr RPAREN SEMI			{ Pos($3) } 
 | IF LPAREN expr RPAREN stmt %prec NOELSE 	{ If($3, $5, Block([]))}
 | IF LPAREN expr RPAREN stmt ELSE stmt    	{ If($3,$5,$7) }
+/*| IF LPAREN expr RPAREN stmt ELSE stmt    { If(($3, $5)::$6) }*/ 
 | FOR LPAREN expr SEMI expr SEMI expr RPAREN stmt  { For($3,$5,$7,$9) }
 | WHILE LPAREN expr RPAREN stmt			{ While($3, $5) }
-| SWITCH LPAREN expr RPAREN LBRACE stmt RBRACE	{ Switch($3, $6) }
-| CASE case_list COLON stmt			{ Case($2, $4) } 
+| SWITCH LPAREN expr RPAREN LBRACE case_stmt case_list RBRACE{ Switch($3,$6::(List.rev $7)) } 
 /*Ocaml code outside the parser should handle
    the dependency of Switch - Case statements */
 
 stmt_list :
-			{ [] }
+{ [] }
 | stmt_list stmt	{ $2 :: $1 }
 
 expr :
@@ -143,16 +143,33 @@ expr :
 | ID LBRACKET expr RBRACKET ASN expr { Aasn($1, $3, $6) }
 | ID LPAREN actuals_list RPAREN	{ Call($1, $3) }
 
+case_list :
+/* need to explicitly state the type, does not get inferred otherwise 
+because of the stmt_list definition*/ 
+ { [] : (expr * stmt) list} 
+| case_list case_stmt  { $2 :: $1 }
+
+case_stmt : 
+  CASE expr COLON stmt_list {($2,Block($4)) } 
+| DEFAULT COLON stmt_list {(Noexpr,Block($3))}
+
+/*
+elseif_lst : 
+{ [] } 
+| elsif_lst elsif_stmt { $2 :: $1 }    
+| elsif_lst else_stmt  { $2 :: $1 }  
+
+elsif_stmt: 
+  ELSEIF LPAREN expr RAPERN stmt {($3,$5)} 
+
+else_stmt: 
+  ELSE stmt {(Noexpr,$2)}    
+*/
+  
 actuals_list :
   actuals_rlist			{ List.rev $1 }
 
 actuals_rlist :
   expr				{ [$1] }
 | actuals_list COMMA expr	{ $3 :: $1 }
-
-case_list :
-  expr				{ [$1] }
-| case_list C_OR expr		{ $3 :: $1 }
-
-
 

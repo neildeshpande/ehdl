@@ -32,7 +32,7 @@ type function_decl = {	pout : Ast.bus list;
 			fid  : string;
 			pin  : Ast.bus list;
 			floc : translation_environment;
-			fbod : stmt list;
+			fbod : s_stmt list;
 		     }
 
 and expr_detail =
@@ -49,14 +49,14 @@ and expr_detail =
   
 and expression = expr_detail * types
   
-and stmt = 
-    Block of symbol_table * (stmt list)
+and s_stmt = 
+    Block of symbol_table * (s_stmt list)
   | Expr of expression
-  | If of expr_detail * stmt * stmt
-  | For of expr_detail * expr_detail * expr_detail * stmt 
-  | While of expr_detail * stmt
+  | If of expr_detail * s_stmt * s_stmt
+  | For of expr_detail * expr_detail * expr_detail * s_stmt 
+  | While of expr_detail * s_stmt
   | Pos of expr_detail
-  | Switch of expr_detail * ((expr_detail * stmt)	list)
+  | Switch of expr_detail * ((expr_detail * s_stmt)	list)
     
     
 let string_of_sast_type (t : types) =
@@ -184,13 +184,17 @@ let rec chk_stmt env = function
 	    in
         (* New environment: same, but with new symbol tables *)
         let new_env = { scope = new_scope}
-        in  
-     	let stmt_list = []
-         in let _ = List.fold_left (
-           fun (env : translation_environment) (actual : Ast.stmt) ->  
-             let s1 = chk_stmt env actual
-             in ignore(s1::stmt_list); new_env) new_env slist
-            in Block(new_scope, List.rev stmt_list)
+        in let run_chk_stmt (env : translation_environment) (actual : Ast.stmt) =
+	  let s1 = chk_stmt env actual
+	    in s1
+	in let new_stmt_list = 
+	let rec stmt_helper l = function
+	    [] -> List.rev l
+	  | hd::tl -> ( run_chk_stmt new_env hd )::l
+	in stmt_helper [] slist
+(* Uncomment to check if Blocks are parsed *)
+	in let _ = print_endline "parsed a Block" 
+	in Block(new_scope,new_stmt_list)
   | Ast.Switch(e, caselist) ->
     	let e, t1 = expr env e
      	in check_switchable e t1;
@@ -222,25 +226,28 @@ let check_func (env : translation_environment) (portin : (Ast.bus list)) (portou
       	  Bdecl(vbus) -> check_and_add_local (vbus, 0, Bus, Int_signal) env
         | Adecl(vbus, size) -> check_and_add_local (vbus, size, Array, Int_signal) env
                             ) pout_env locals_list
-     in let stmt_list = []
-        in let _ = List.fold_left (
-       		fun (env : translation_environment) (actual : Ast.stmt) ->
-         		let _ = (chk_stmt env actual) :: stmt_list
-           			in env
-                                    ) full_env stmt_list
-           in List.rev stmt_list
-
-
+	
+	in let run_chk_stmt (env : translation_environment) (actual : Ast.stmt) =
+		let s1 = chk_stmt env actual
+		in s1
+	
+	in let new_stmt_list = 
+	let rec stmt_helper l = function
+		  [] -> List.rev l
+		| hd::tl -> ( run_chk_stmt full_env hd )::l
+	  in stmt_helper [] stmts
+	in (full_env, new_stmt_list)
   
-  
+
 let func (env : translation_environment) (astfn : Ast.fdecl) =
   let func_scope = { parent = Some(env.scope); variables = [] }
   in let func_env = {scope = func_scope }
-     in let fobj = {	pout = (astfn.portout);
-		    	fid  = (astfn.fname);
-			pin  = (astfn.portin);
-			floc = func_env;
-			fbod = check_func func_env astfn.portin astfn.portout astfn.body; }           
+    in let (chk_floc, chk_fbod) = check_func func_env astfn.portin astfn.portout astfn.body
+     in let fobj = {	pout = astfn.portout;
+		    	fid  = astfn.fname;
+			pin  = astfn.portin;
+			floc = chk_floc;
+			fbod = chk_fbod; }           
         in let function_table = StringMap.add astfn.fname fobj function_table
 	  in function_table
   

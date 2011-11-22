@@ -1,4 +1,4 @@
-
+open Ast
 open Sast
 
 module CompMap = Map.Make(struct
@@ -21,10 +21,15 @@ let create_component cname cobj components =
 	     in if ( x = 1 ) then head else  (head ^ delim ^ (delim_sprt delim (List.tl p)) ) 	   
    
    (* helper for building the vhdl style port list string *) 		 
-   in let rec port_descr_list p inOrOut ports = match ports with
+     in let rec port_descr_list p inOrOut (ports: Ast.bus list) = match ports with
        [] -> p
        | hd::tl -> let typedescr = 
-		     (match hd.pin with 
+         
+		     (
+                   let vbus = hd
+                     in
+         
+         match vbus.size with 
 			0 -> raise (Failure ("bus size cannot be zero " ))
 			(* not doing std_logic because then we have to convert 1 to '1' *)
 		  | x -> " std_logic_vector(" ^ string_of_int(hd.size-1) ^ " downto 0)" ) 
@@ -32,7 +37,7 @@ let create_component cname cobj components =
 		       in port_descr_list  (s::p) inOrOut tl
    
 
-   in let entity cname ( { : Sast.function_decl )= (* entity *) 
+   in let entity cname ( cobj : Sast.function_decl )= (* entity *) 
 	let inportlist = port_descr_list [] "in " cobj.pin
 	in let portList =  port_descr_list inportlist "out" cobj.pout
 	  in let s = delim_sprt ";\n" (List.rev portList)       

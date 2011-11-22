@@ -1,0 +1,7 @@
+int(1) b main(int(1) a) {  
+    if (a == 1) {  
+        b = 0; 
+    } else { 
+        b = 1;
+    }
+}

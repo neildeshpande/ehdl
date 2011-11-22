@@ -223,11 +223,13 @@ let func (env : translation_environment) (astfn : Ast.fdecl) =
 			fbod = check_func func_env (astfn.body); }           
         in function_table = StringMap.add astfn.fname fobj function_table
   
-let prog (constlist, funclist) = 
+let prog ((constlist : Ast.gdecl list), funclist) = 
   let clist = List.map (
-    fun gdecl -> 
-      let _ = check_basn (fst gdecl) (snd gdecl)
-      in (fst gdecl, snd gdecl, Const)
+    fun (gdecl : Ast.gdecl)-> 
+      let Ast.Const(vbus, value) = gdecl
+        in
+      let _ = check_basn vbus value
+      in (vbus, value, Const)
                           ) constlist
      in let global_scope = { parent = None; variables = List.rev clist}
         in let global_env = { scope = global_scope }

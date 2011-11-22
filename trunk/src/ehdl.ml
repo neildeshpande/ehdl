@@ -39,7 +39,7 @@ let create_component cname cobj components =
 	     in "entity " ^ cname ^ "  is \n\nport (\n" ^
 		"\tclk : in std_logic;\n\trst : in std_logic;\n" ^ s ^ ");\n\nend main;\n\n"   
 	     
-(*  (* Evaluate expressions *) 
+(*(* Evaluate expressions *) 
  in let rec eval e l = match e with
     Num(i) -> string_of_int i, l 
     | Id(i) -> i, i::l (* the list is keeping track of variables for the sensitivity list*) 
@@ -113,16 +113,18 @@ let create_component cname cobj components =
 	 in prev ^ "\n\tprocess (" ^ ss ^ ")\n\tbegin\n\t\t" ^ s ^ "\n\tend process;\n"	  
    
     in let body cobj = 
-       (* need to print out the locals here *) 
-	let stmt_attr = List.map (translate_stmt ([],"")) (snd cobj.fbod)
+	let stmt_attr = List.map (translate_stmt ([],"")) (cobj.fbod : Sast.s_stmt list)
 	in  List.fold_left print_process "" stmt_attr
 
    in let arch cname cobj = (*arch *)
-      "architecture e_" ^ cname ^ " of  " ^ cname ^ " is \n\nbegin\n"
-      ^ body cobj 
-      ^ "\n\nend e_" ^ cname ^ ";\n\n" *)
+(* need to evaluate the body before printing out the locals, because pos implies new signals! *)
+     let behavior = body cobj in
+(* need to print out the locals nefore begin *)
+      "architecture e_" ^ cname ^ " of  " ^ cname ^ " is \n\nbegin\n" 
+      ^ behavior
+      ^ "\n\nend e_" ^ cname ^ ";\n\n"*)
 
-  in let s = libraries ^ (entity cname cobj) (*^ (arch cname cobj)  *)
+  in let s = libraries ^ (entity cname cobj) (*^ (arch cname cobj)*)
   in CompMap.add cname s components 
   in let components = StringMap.fold create_component ftable CompMap.empty
   in components 

@@ -36,7 +36,8 @@ let create_component cname cobj components =
 	let inportlist = port_descr_list [] "in " cobj.pin
 	in let portList =  port_descr_list inportlist "out" cobj.pout
 	  in let s = delim_sprt ";\n" (List.rev portList)       
-	     in "entity " ^ cname ^ "  is \n\nport (\n" ^ s ^ ");\n\nend main;\n\n"   
+	     in "entity " ^ cname ^ "  is \n\nport (\n" ^
+		"\tclk : in std_logic;\n\trst : in std_logic;\n" ^ s ^ ");\n\nend main;\n\n"   
 	     
 (*  (* Evaluate expressions *) 
  in let rec eval e l = match e with

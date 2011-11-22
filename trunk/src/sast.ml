@@ -79,7 +79,10 @@ let rec find_variable (scope : symbol_table) name =
 
 let check_and_add_local (vbus, x, t, lt) (env : translation_environment) =
   let var = (vbus, x, t, lt) in
-  let _ = print_endline vbus.name in
+
+(* Un-comment to print the list of locals name *)
+  (*let _ = print_endline vbus.name in*)
+
   if List.exists (fun (varbus, _, _, _) -> varbus.name = vbus.name) env.scope.variables
   then raise (Error("Multiple declarations for " ^ vbus.name))
   else let new_scope = { parent = env.scope.parent;
@@ -263,10 +266,5 @@ in let _ = List.iter print_endline name_list*)
 							in create_map mymap tl
 	   in let ftable = create_map function_table funclist
 		in global_env, ftable
-(*
-	   in let _ = List.map (
-	     fun (astfn : Ast.fdecl) -> (func global_env astfn)
-				   ) funclist
-	       in global_env, function_table*)
 
 

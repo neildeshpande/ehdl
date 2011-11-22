@@ -5,7 +5,11 @@ module StringMap = Map.Make(String);;
 let function_table = StringMap.empty
 
 exception Error of string  
-  
+
+type local_t = 
+    In_port
+  | Out_port
+  | Int_signal
   
 type types = 
     Bus 
@@ -17,7 +21,7 @@ type types =
 (* Covers both buses and array, out of bounds exceptions should done at run time *)
 type symbol_table = {
   parent : symbol_table option;
-  variables : (Ast.bus * int * types) list
+  variables : (Ast.bus * int * types * local_t) list
                     }
 
 type translation_environment = {
@@ -66,19 +70,22 @@ let string_of_sast_type (t : types) =
 let rec find_variable (scope : symbol_table) name =
 	try
 		List.find ( 
-    				fun ( v , _, _ ) -> v.name = name 
+    				fun ( v , _, _, _ ) -> v.name = name 
     				) scope.variables
 	with Not_found ->
 		match scope.parent with
 			  Some(parent) -> find_variable parent name
-			| _ -> raise Not_found
+			| _ -> raise (Error("Variable " ^ name ^ " is undeclared"))
 
-let check_and_add_local (vbus, x, t) (env : translation_environment) =
-  let var = (vbus, x, t) in
-  if List.exists (fun (varbus, _, _) -> varbus.name = vbus.name) env.scope.variables
+let check_and_add_local (vbus, x, t, lt) (env : translation_environment) =
+  let var = (vbus, x, t, lt) in
+  let _ = print_endline vbus.name in
+  if List.exists (fun (varbus, _, _, _) -> varbus.name = vbus.name) env.scope.variables
   then raise (Error("Multiple declarations for " ^ vbus.name))
-  else let _ = var :: env.scope.variables
-       in env
+  else let new_scope = { parent = env.scope.parent;
+		         variables = var :: env.scope.variables; }
+  in let env = { scope = new_scope;} (*var :: env.scope.variables*)
+       in  env
 
 (* Check type compatibility of e1 and e2 for the given op *)
 (* Raise error if incompatible else return unit *)
@@ -98,7 +105,7 @@ let rec expr env = function
 	Ast.Num(v) -> Num(v), Const
 (* An identifier: verify it is in scope and return its type *)
   | Ast.Id(vname) ->
-    	let vbus, _, _ = 
+    	let vbus, _, _, _ = 
        		try
     			find_variable env.scope vname (* locate a variable by name *)
     		with Not_found ->
@@ -111,14 +118,14 @@ let rec expr env = function
 		Binop(fst e1, op, fst e2), Bus (* Success: result is bus *)
   | Ast.Basn(vname, e1) ->
 		let e1 = expr env e1
-  and vbus, _, _ = find_variable env.scope vname
+  and vbus, _, _, _ = find_variable env.scope vname
     	in
     	check_basn vbus e1;
     	Basn(vbus, fst e1), Bus
   | Ast.Aasn(vname, e1, e2) ->
 		let e1 = expr env e1
   		and e2 = expr env e2
-  		and vbus, size, _ = find_variable env.scope vname
+  		and vbus, size, _, _ = find_variable env.scope vname
     	in
     	check_aasn vbus e1 e2;
     	Aasn(vbus, size, fst e1, fst e2), Bus
@@ -138,12 +145,12 @@ let rec expr env = function
     	let (e1, t1) = expr env e1
      in Unop(op, e1), t1
   | Ast.Subbus(vname, x, y) ->
-    	let vbus, _, _ = find_variable env.scope vname
+    	let vbus, _, _, _ = find_variable env.scope vname
      	in check_subbus vbus x y;
     	Subbus(vbus, x, y), Bus
   | Ast.Barray(vname, e1) ->
     	let (e1, t1) = expr env e1
-     and varray, size, _ = find_variable env.scope vname
+     and varray, size, _, _ = find_variable env.scope vname
      in check_array_dereference varray size e1;
     Barray(varray, size, e1), Array
   | Ast.Noexpr -> Noexpr, Void
@@ -194,20 +201,30 @@ let rec chk_stmt env = function
            in Switch(e, List.rev clist)
 
 
-let check_func (env : translation_environment) (body : Ast.fbody) =
+let check_func (env : translation_environment) (portin : (Ast.bus list)) (portout : (Ast.bus list)) (body : Ast.fbody) =
+  let pin_env = List.fold_left (
+    fun (pin_env : translation_environment) (actual : Ast.bus) ->
+      check_and_add_local (actual, 0, Bus, In_port) pin_env
+				) env portin
+  in
+  let pout_env = List.fold_left (
+    fun (pout_env : translation_environment) (actual : Ast.bus) ->
+      check_and_add_local (actual, 0, Bus, Out_port) pout_env
+				) pin_env portout
+  in
   let (locals_list, stmts) = body
-  in let env = List.fold_left (
+  in let full_env = List.fold_left (
     fun (env : translation_environment) (actual : Ast.locals) ->
       match actual with
-      	  Bdecl(vbus) -> check_and_add_local (vbus, 0, Bus) env
-        | Adecl(vbus, size) -> check_and_add_local (vbus, size, Array) env
-                            ) env locals_list
+      	  Bdecl(vbus) -> check_and_add_local (vbus, 0, Bus, Int_signal) env
+        | Adecl(vbus, size) -> check_and_add_local (vbus, size, Array, Int_signal) env
+                            ) pout_env locals_list
      in let stmt_list = []
         in let _ = List.fold_left (
        		fun (env : translation_environment) (actual : Ast.stmt) ->
          		let _ = (chk_stmt env actual) :: stmt_list
            			in env
-                                    ) env stmt_list
+                                    ) full_env stmt_list
            in List.rev stmt_list
 
 
@@ -220,24 +237,36 @@ let func (env : translation_environment) (astfn : Ast.fdecl) =
 		    	fid  = (astfn.fname);
 			pin  = (astfn.portin);
 			floc = func_env;
-			fbod = check_func func_env (astfn.body); }           
-        in function_table = StringMap.add astfn.fname fobj function_table
+			fbod = check_func func_env astfn.portin astfn.portout astfn.body; }           
+        in let function_table = StringMap.add astfn.fname fobj function_table
+	  in function_table
   
-let prog ((constlist : Ast.gdecl list), funclist) = 
+let prog ((constlist : Ast.gdecl list), (funclist : Ast.fdecl list)) = 
   let clist = List.map (
     fun (gdecl : Ast.gdecl)-> 
       let Ast.Const(vbus, value) = gdecl
         in
       let _ = check_basn vbus value
-      in (vbus, value, Const)
+      in (vbus, value, Const, Int_signal)
                           ) constlist
+
+(* Un-comment to print the list of constants name *)
+(*in let name_list = List.map (fun (sgnl,_,_,_) -> sgnl.name) clist
+in let _ = List.iter print_endline name_list*)
+
      in let global_scope = { parent = None; variables = List.rev clist}
         in let global_env = { scope = global_scope }
+
+	   in let rec create_map mymap = function
+					  [] -> mymap 
+  					| hd::tl -> let mymap = func global_env (hd : Ast.fdecl)
+							in create_map mymap tl
+	   in let ftable = create_map function_table funclist
+		in global_env, ftable
+(*
 	   in let _ = List.map (
 	     fun (astfn : Ast.fdecl) -> (func global_env astfn)
 				   ) funclist
-	       in global_env, function_table
-           (*in let flist = List.map (
-             fun (astfn : Ast.fdecl) -> (func global_env astfn)
-                                   ) funclist
-              in global_env, flist*)
+	       in global_env, function_table*)
+
+

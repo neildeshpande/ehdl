@@ -21,7 +21,7 @@ type types =
 (* Covers both buses and array, out of bounds exceptions should done at run time *)
 type symbol_table = {
   parent : symbol_table option;
-  variables : (Ast.bus * int * types * local_t) list
+  variables : (Ast.bus * int * types * local_t * bool) list
                     }
 
 type translation_environment = {
@@ -50,7 +50,7 @@ and expr_detail =
 and expression = expr_detail * types
   
 and s_stmt = 
-    Block of symbol_table * (s_stmt list)
+    Block of s_stmt list
   | Expr of expression
   | If of expr_detail * s_stmt * s_stmt
   | For of expr_detail * expr_detail * expr_detail * s_stmt 
@@ -72,7 +72,7 @@ let string_of_sast_type (t : types) =
 let rec find_variable (scope : symbol_table) name =
 	try
 		List.find ( 
-    				fun ( v , _, _, _ ) -> v.name = name 
+    				fun ( v , _, _, _, _ ) -> v.name = name 
     				) scope.variables
 	with Not_found ->
 		match scope.parent with
@@ -81,11 +81,11 @@ let rec find_variable (scope : symbol_table) name =
 
 
 (* Add local to Symbol Table *)
-let check_and_add_local (vbus, x, t, lt) (env : translation_environment) =
-  let var = (vbus, x, t, lt) in
+let check_and_add_local (vbus, x, t, lt, dr) (env : translation_environment) =
+  let var = (vbus, x, t, lt, dr) in
 (* Un-comment to print the list of locals name *)
   (*let _ = print_endline vbus.name in*)
-  if List.exists (fun (varbus, _, _, _) -> varbus.name = vbus.name) env.scope.variables
+  if List.exists (fun (varbus, _, _, _, _) -> varbus.name = vbus.name) env.scope.variables
   then raise (Error("Multiple declarations for " ^ vbus.name))
   else let new_scope = { parent = env.scope.parent;
 		         variables = var :: env.scope.variables; }
@@ -95,6 +95,8 @@ let check_and_add_local (vbus, x, t, lt) (env : translation_environment) =
 
 (* Check type compatibility of e1 and e2 for the given op *)
 (* Raise error if incompatible else return unit *)
+(*!!! WHILE WRITING THESE FUNCTIONS, CHECK THE LAST FIELD OF THE VARIABLES:
+      IF TRUE RAISE "Variable <vname> has more than one driver"       !!!*)
 let check_types e1 op e2 = ()
 let check_basn vbus e1 = () 
 let check_aasn vbus e1 e2 = ()
@@ -113,12 +115,12 @@ let rec chk_expr function_table env = function
 	Ast.Num(v) -> Num(v), Const
 (* An identifier: verify it is in scope and return its type *)
   | Ast.Id(vname) ->
-    	let vbus, _, _, _ = 
+    	let vbus, _, vtype, _, _ = 
        		try
     			find_variable env.scope vname (* locate a variable by name *)
     		with Not_found ->
     			raise (Error("undeclared identifier " ^ vname))
-    	in Id(vbus.name), Bus
+    	in Id(vbus.name), vtype (*Be careful!!! An Id could be a constant, a bus or an array!*)
   | Ast.Binop(e1, op, e2) ->
     	let e1 = chk_expr function_table env e1 (* Check left and right children *)
 		and e2 = chk_expr function_table env e2 in
@@ -126,14 +128,14 @@ let rec chk_expr function_table env = function
 		Binop(fst e1, op, fst e2), Bus (* Success: result is bus *)
   | Ast.Basn(vname, e1) ->
 		let e1 = chk_expr function_table env e1
-  and vbus, _, _, _ = find_variable env.scope vname
+  and vbus, _, _, _, _ = find_variable env.scope vname
     	in
     	check_basn vbus e1;
     	Basn(vbus, fst e1), Bus
   | Ast.Aasn(vname, e1, e2) ->
 		let e1 = chk_expr function_table env e1
   		and e2 = chk_expr function_table env e2
-  		and vbus, size, _, _ = find_variable env.scope vname
+  		and vbus, size, _, _, _ = find_variable env.scope vname
     	in
     	check_aasn vbus e1 e2;
     	Aasn(vbus, size, fst e1, fst e2), Bus
@@ -159,14 +161,14 @@ let rec chk_expr function_table env = function
     	let (e1, t1) = chk_expr function_table env e1
      in Unop(op, e1), t1
   | Ast.Subbus(vname, x, y) ->
-    	let vbus, _, _, _ = find_variable env.scope vname
+    	let vbus, _, _, _, _ = find_variable env.scope vname
      	in check_subbus vbus x y;
     	Subbus(vbus, x, y), Bus
   | Ast.Barray(vname, e1) ->
     	let (e1, t1) = chk_expr function_table env e1
-     and varray, size, _, _ = find_variable env.scope vname
+     and varray, size, vtype, _, _ = find_variable env.scope vname
      in check_array_dereference varray size e1;
-    Barray(varray, size, e1), Array
+    Barray(varray, size, e1), vtype (*Be careful!!! A reference to array a[i] returns always a varray type!*)
   | Ast.Noexpr -> Noexpr, Void
 
 
@@ -192,23 +194,24 @@ let rec chk_stmt function_table env = function
      	in check_pos_expr e1;
     	Pos(e1)
   | Ast.Block(slist) ->
-    	(* New scopes: parent is the existing scope, start out empty *)
+    	(*(* New scopes: parent is the existing scope, start out empty *)
 		let new_scope = { parent = Some(env.scope); variables = [] }
 	    in
         (* New environment: same, but with new symbol tables *)
         let new_env = { scope = new_scope}
-        in let run_chk_stmt (env : translation_environment) (actual : Ast.stmt) =
+        in *)
+	let run_chk_stmt (env : translation_environment) (actual : Ast.stmt) =
 	  let s1 = chk_stmt function_table env actual
 	    in s1
 	in let new_stmt_list = 
 	let rec stmt_helper l = function
 	    [] -> List.rev l
-	  | hd::tl -> let new_l = ( run_chk_stmt new_env hd )::l
+	  | hd::tl -> let new_l = ( run_chk_stmt env hd )::l
 		in stmt_helper new_l tl
 	in stmt_helper [] slist
 (* Uncomment to check if Blocks are parsed *)
 	in let _ = print_endline "parsed a Block"
-	in Block(new_scope,new_stmt_list)
+	in Block(new_stmt_list)
   | Ast.Switch(e, caselist) ->
     	let e, t1 = chk_expr function_table env e
      	in let _ = check_switchable e t1
@@ -229,20 +232,20 @@ let rec chk_stmt function_table env = function
 let check_func (env : translation_environment) (portin : (Ast.bus list)) (portout : (Ast.bus list)) (body : Ast.fbody) function_table =
   let pin_env = List.fold_left (
     fun (pin_env : translation_environment) (actual : Ast.bus) ->
-      check_and_add_local (actual, 0, Bus, In_port) pin_env
+      check_and_add_local (actual, 0, Bus, In_port, true) pin_env
 				) env portin
   in
   let pout_env = List.fold_left (
     fun (pout_env : translation_environment) (actual : Ast.bus) ->
-      check_and_add_local (actual, 0, Bus, Out_port) pout_env
+      check_and_add_local (actual, 0, Bus, Out_port, false) pout_env
 				) pin_env portout
   in
   let (locals_list, stmts) = body
   in let full_env = List.fold_left (
     fun (env : translation_environment) (actual : Ast.locals) ->
       match actual with
-      	  Bdecl(vbus) -> check_and_add_local (vbus, 0, Bus, Int_signal) env
-        | Adecl(vbus, size) -> check_and_add_local (vbus, size, Array, Int_signal) env
+      	  Bdecl(vbus) -> check_and_add_local (vbus, 0, Bus, Int_signal, false) env
+        | Adecl(vbus, size) -> check_and_add_local (vbus, size, Array, Int_signal, false) env
                             ) pout_env locals_list	
 	in let run_chk_stmt (env : translation_environment) (actual : Ast.stmt) =
 		let s1 = chk_stmt function_table env actual
@@ -279,7 +282,7 @@ let prog ((constlist : Ast.gdecl list), (funclist : Ast.fdecl list)) =
       let Ast.Const(vbus, value) = gdecl
         in
       let _ = check_basn vbus value
-      in (vbus, value, Const, Int_signal)
+      in (vbus, value, Const, Int_signal, true)
                           ) (List.rev constlist)
 (* Un-comment to print the list of constants name *)
 (*in let name_list = List.map (fun (sgnl,_,_,_) -> sgnl.name) clist

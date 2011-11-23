@@ -6,6 +6,13 @@ module CompMap = Map.Make(struct
   let compare x y = Pervasives.compare x y
 end)
 
+
+(*Auxiliary function: adds conv_std_logic_vector *)
+let num_to_slv v size =
+   try let _ = int_of_string v
+	in "conv_std_logic_vector("^v^","^(string_of_int size)^")"
+   with Failure(s) -> v
+
 let translate (genv, ftable) =
 let create_component cname cobj components = 
   let libraries = "\nlibrary ieee;\n" ^ 
@@ -39,7 +46,7 @@ let create_component cname cobj components =
 	     in "entity " ^ cname ^ "  is \n\nport (\n" ^
 		"\tclk : in std_logic;\n\trst : in std_logic;\n" ^ s ^ ");\n\nend main;\n\n"   
 	     
-(*(* Evaluate expressions *) 
+(* Evaluate expressions *) 
  in let rec eval e l = match e with
     Num(i) -> string_of_int i, l 
     | Id(i) -> i, i::l (* the list is keeping track of variables for the sensitivity list*) 
@@ -51,7 +58,7 @@ let create_component cname cobj components =
     | Binop(e1,op,e2) -> 
      let v1, l = eval e1 l  in let v2, l = eval e2 l 
      in (match op with 
-	     Add  -> v1 ^ " + " ^ v2
+	 Add  -> v1 ^ " + " ^ v2
        | Sub  -> v1 ^ " - " ^ v2 
        | Mul  -> v1 ^ " * " ^ v2  
        | Div  -> v1 ^ " / " ^ v2   
@@ -68,7 +75,9 @@ let create_component cname cobj components =
        | Shl  -> v1 ^ " sll " ^ v2 (*check that v2 is an integer,here or parser ? *)
        | Shr  -> v1 ^ " srl " ^ v2 
        | x    -> raise (Failure ("The operator is not a binary operator "))), l
-   | Basn(i, e1) -> let v1, l = eval e1 l in  (i ^ " <= " ^ v1 ^ ";\n" ) , l
+   | Basn(i, e1) -> let v1, l = eval e1 l
+		in  let slv_v1 = num_to_slv v1 i.size
+		  in (i.name ^ " <= " ^ slv_v1 ^ ";\n" ) , l
    | Call(i,e1) ->  raise (Failure ("Call not supported yet " ))
    
    | x ->  raise (Failure ("Expression not supported yet " ))
@@ -77,7 +86,7 @@ let create_component cname cobj components =
  in let rec translate_stmt (l,str) stmt = 
     (  match stmt with  
 	  Block(stmts)  -> List.fold_left translate_stmt (l,str) (List.rev stmts) 
-	| Expr(e) -> let s,l = eval e l  in (l, (str ^ s))   
+	| Expr(e) -> let s,l = eval (fst e) l  in (l, (str ^ s))   
 	| If(e,if_stmt,else_stmt) -> 
 	    let s,l = eval e l 
 	    in let l,if_block = translate_stmt(l,"") if_stmt
@@ -122,9 +131,9 @@ let create_component cname cobj components =
 (* need to print out the locals nefore begin *)
       "architecture e_" ^ cname ^ " of  " ^ cname ^ " is \n\nbegin\n" 
       ^ behavior
-      ^ "\n\nend e_" ^ cname ^ ";\n\n"*)
+      ^ "\n\nend e_" ^ cname ^ ";\n\n"
 
-  in let s = libraries ^ (entity cname cobj) (*^ (arch cname cobj)*)
+  in let s = libraries ^ (entity cname cobj) ^ (arch cname cobj)
   in CompMap.add cname s components 
   in let components = StringMap.fold create_component ftable CompMap.empty
   in components 

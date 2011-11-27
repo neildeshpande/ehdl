@@ -29,11 +29,12 @@ type translation_environment = {
 }
 
 type function_decl = {	pout : Ast.bus list;
-			fid  : string;
-			pin  : Ast.bus list;
-			floc : translation_environment;
-			fbod : s_stmt list;
-		     }
+	 fid  : string;
+	 pin  : Ast.bus list;
+	 floc : translation_environment;
+     fcalls : function_decl list; (* list of other functions that are called by this function *)  
+	 fbod : s_stmt list;
+}
 
 and expr_detail =
   Num of int
@@ -44,11 +45,10 @@ and expr_detail =
 | Binop of expr_detail * Ast.operator * expr_detail
 | Basn of Ast.bus * expr_detail
 | Aasn of Ast.bus * int * expr_detail * expr_detail
-| Call of function_decl * expression list
 | Noexpr
   
 and expression = expr_detail * types
-  
+
 and s_stmt = 
     Block of s_stmt list
   | Expr of expression
@@ -57,6 +57,7 @@ and s_stmt =
   | While of expr_detail * s_stmt
   | Pos of expr_detail
   | Switch of expr_detail * ((expr_detail * s_stmt)	list)
+  | Call of function_decl * (expr_detail list) * (expr_detail list) 
     
     
 let string_of_sast_type (t : types) =
@@ -100,7 +101,7 @@ let check_and_add_local (vbus, x, t, lt, dr) (env : translation_environment) =
 let check_types e1 op e2 = ()
 let check_basn vbus e1 = () 
 let check_aasn vbus e1 e2 = ()
-let check_call actuals env func_decl = ()
+let check_call env out_actuals in_actuals func_decl = ()
 let check_subbus vbus x y = ()
 let check_array_dereference  varray size e1 = ()
 let check_conditional e1 t1 = ()
@@ -139,24 +140,7 @@ let rec chk_expr function_table env = function
     	in
     	check_aasn vbus e1 e2;
     	Aasn(vbus, size, fst e1, fst e2), Bus
-  | Ast.Call(fname, expr_list) ->
-    	let func_decl = 
-       		try StringMap.find fname function_table
-         with Not_found -> raise (Failure ("undefined function " ^ fname))
-
-	in let chk_call (env : translation_environment) (actual : Ast.expr) = 
-	   let e1 = chk_expr function_table env actual
-	   in e1
-	in let rec call_helper l = function
-	     [] -> List.rev l
-	   | hd::tl -> let new_l = (chk_call env hd) :: l
-			in call_helper new_l tl
-	  in let new_expr_list = call_helper [] expr_list
-	in let _ = check_function_params func_decl new_expr_list
-(* Uncomment to check if Function Call is parsed *)
-	in let _ = print_endline "Function Call parsed"
-	in Call(func_decl, new_expr_list), Function
-(* NEED TO CHECK OUTPUT PORTS MATCH WITH LOCALS ASSIGNMENT!!!*)
+  (* NEED TO CHECK OUTPUT PORTS MATCH WITH LOCALS ASSIGNMENT!!!*)
   | Ast.Unop(op, e1) ->
     	let (e1, t1) = chk_expr function_table env e1
      in Unop(op, e1), t1
@@ -227,6 +211,20 @@ let rec chk_stmt function_table env = function
 (* Uncomment to check if Switch is parsed *)
 	in let _ = print_endline "parsed a Switch"
 	in Switch(e, clist)
+	
+   | Ast.Call(fname, out_list, in_list ) ->	
+    	let func_decl = 
+       		try StringMap.find fname function_table
+         with Not_found -> raise (Failure ("undefined function " ^ fname))
+    in let _ = check_call env out_list in_list func_decl     
+    in let inlist = List.fold_left 
+    ( fun l x -> let e1, _ =  chk_expr function_table env x in e1::l ) [] in_list 
+    in let outlist = List.fold_left 
+    ( fun l x -> let e1, _ =  chk_expr function_table env x in e1::l ) [] out_list
+(* Uncomment to check if Function Call is parsed *)
+	in let _ = print_endline "Function Call parsed"
+	in Call(func_decl, outlist, inlist)
+
 
 (* Function translation Ast -> Sast. Build Symbol table; parse statements*)
 let check_func (env : translation_environment) (portin : (Ast.bus list)) (portout : (Ast.bus list)) (body : Ast.fbody) function_table =
@@ -247,28 +245,38 @@ let check_func (env : translation_environment) (portin : (Ast.bus list)) (portou
       	  Bdecl(vbus) -> check_and_add_local (vbus, 0, Bus, Int_signal, false) env
         | Adecl(vbus, size) -> check_and_add_local (vbus, size, Array, Int_signal, false) env
                             ) pout_env locals_list	
-	in let run_chk_stmt (env : translation_environment) (actual : Ast.stmt) =
-		let s1 = chk_stmt function_table env actual
-		in s1	
-	in let new_stmt_list = 
-	let rec stmt_helper l = function
+	in let run_chk_stmt (env : translation_environment) (stmt_lst, call_lst) (actual : Ast.stmt) =
+	let s1 = chk_stmt function_table env actual
+	in let call_lst = (match actual with 
+	        Ast.Call(fname, _, _ ) -> let f_decl = 
+       		               try StringMap.find fname function_table with Not_found -> raise (Failure ("undefined function " ^ fname))
+	                       in f_decl::call_lst 
+	       | x -> call_lst (* do nothing *) ) 
+	    in (s1::stmt_lst,call_lst)
+	
+	in let (new_stmt_list,call_lst) = 
+	List.fold_left (run_chk_stmt full_env) ([],[]) stmts  
+	
+	(*
+	let rec stmt_helper l cl = function
 		  [] -> List.rev l
-		| hd::tl -> let new_l = ( run_chk_stmt full_env hd )::l
+		| hd::tl -> let new_l = ( run_chk_stmt full_env cl hd )::l
 			in stmt_helper new_l tl
-	  in stmt_helper [] stmts
-	in (full_env, new_stmt_list)
+	  in stmt_helper [] [] stmts *)
+	in (full_env, call_lst, new_stmt_list)
   
 
 (* Function table *)
 let func (env : translation_environment) (astfn : Ast.fdecl) tmp_ftable =
   let func_scope = { parent = Some(env.scope); variables = [] }
   in let func_env = {scope = func_scope }
-    in let (chk_floc, chk_fbod) = check_func func_env astfn.portin astfn.portout astfn.body tmp_ftable
+    in let (chk_floc, chk_calls, chk_fbod) = check_func func_env astfn.portin astfn.portout astfn.body tmp_ftable
      in let fobj = {	pout = astfn.portout;
 		    	fid  = astfn.fname;
-			pin  = astfn.portin;
-			floc = chk_floc;
-			fbod = chk_fbod; }           
+			    pin  = astfn.portin;
+			    floc  = chk_floc;
+			    fcalls = chk_calls; 
+			    fbod = chk_fbod; }           
         in let new_ftable = StringMap.add astfn.fname fobj tmp_ftable
 (* Uncomment to check if functions are added to the Function Table*)
 	in let _ = print_endline ("Added "^astfn.fname)

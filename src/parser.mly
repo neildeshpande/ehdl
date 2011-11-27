@@ -108,6 +108,8 @@ stmt :
 | FOR LPAREN expr SEMI expr SEMI expr RPAREN stmt  { For($3,$5,$7,$9) }
 | WHILE LPAREN expr RPAREN stmt			{ While($3, $5) }
 | SWITCH LPAREN expr RPAREN LBRACE case_stmt case_list RBRACE{ Switch($3,$6::(List.rev $7)) } /* Enforcing at least one case_stmt in the parser so no need to do it later */ 
+| LPAREN actuals_list RPAREN ASN ID LPAREN actuals_list RPAREN SEMI	{ Call($5, (List.rev $2), (List.rev $7)) }
+
 
 stmt_list :
 { [] }
@@ -138,11 +140,8 @@ expr :
 | expr SHR expr			{ Binop($1, Shr, $3) }
 | ID ASN expr			{ Basn($1, $3) }
 | ID LBRACKET expr RBRACKET ASN expr { Aasn($1, $3, $6) }
-| ID LPAREN actuals_list RPAREN	{ Call($1, $3) }
 
 case_list :
-/* need to explicitly state the type, does not get inferred otherwise 
-because of the stmt_list definition*/ 
  { [] : (expr * stmt) list} 
 | case_list case_stmt  { $2 :: $1 }
 
@@ -150,23 +149,11 @@ case_stmt :
   CASE expr COLON stmt_list {($2,Block($4)) } 
 | DEFAULT COLON stmt_list {(Noexpr,Block($3))}
 
-/*
-elseif_lst : 
-{ [] } 
-| elsif_lst elsif_stmt { $2 :: $1 }    
-| elsif_lst else_stmt  { $2 :: $1 }  
-
-elsif_stmt: 
-  ELSEIF LPAREN expr RAPERN stmt {($3,$5)} 
-
-else_stmt: 
-  ELSE stmt {(Noexpr,$2)}    
-*/
-  
 actuals_list :
   actuals_rlist			{ List.rev $1 }
 
 actuals_rlist :
-  expr				{ [$1] }
+  expr				{ [$1] } 
 | actuals_list COMMA expr	{ $3 :: $1 }
 
+  

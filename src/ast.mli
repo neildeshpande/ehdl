@@ -18,8 +18,8 @@ type expr =
 | Binop of expr * operator * expr	(* Binary operations *)
 | Basn of string * expr			(* bus name * value *)
 | Aasn of string * expr * expr		(* Array name * array index * value *)
-| Call of string * expr list		(* function name * arguments id *)
 | Noexpr
+
 
 type stmt =
   Block of stmt list
@@ -29,6 +29,7 @@ type stmt =
 | For of expr * expr * expr * stmt 
 | While of expr * stmt
 | Switch of expr *  (expr * stmt) list 	(* switch (expr) {...} *)
+| Call of string * (expr list) * (expr list) 
 
 type fbody =  locals list * stmt list
 

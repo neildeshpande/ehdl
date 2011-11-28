@@ -176,7 +176,7 @@ let create_component cname cobj components =
 
     in let print_process prev (env,s) =  
      let l = uniq env.sens_list in 
-     ( match l with   [] -> prev ^ s (* Don't make this a process if nothing in the sensitivity list *)  
+     ( match l with   [] -> prev ^ s (* Don't make this a process if nothing in the sensitivity list, affects Call() and consts *)  
                     | x  -> let ss = delim_sprt ", " l
 	                in prev ^ "\n\tprocess (" ^ ss ^ ")\n\tbegin\n" ^ s ^ "\n\tend process;\n" )	  
    

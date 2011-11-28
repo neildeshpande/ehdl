@@ -8,20 +8,27 @@ end)
 
 
 type s_env = {
-    sens_list : string list
+    sens_list : string list;  
            } (* can add more stuff to this, list of locals for example, so POS can update it *) 
 
 
 (* insert non-duplicates *) 
-let rec insert_uniq (l:string list) name =
+let rec insert_uniq l name =
 	try let _ = List.find ( fun ( s ) -> s = name ) l in l  
 	with Not_found-> name::l
-
 (* returns a list whose vals are unique *) 	
 let uniq lst = 
     List.fold_left (fun l s -> insert_uniq l s) [] lst    	
-
-
+    
+    
+(* insert non-duplicate fcalls, should really do operator overloading and use a generic uniq function *) 
+let rec insert_call l c =
+	try let _ = List.find ( fun ( s ) -> s.fid = c.fid ) l in l  
+	with Not_found-> c::l
+(* returns a list whose vals are unique *) 	
+let uniq_calls clist = 
+    List.fold_left (fun l c -> insert_call l c) [] clist      
+    
 (* Utility function for producing a delimeter separated string from a list*)    
 let rec delim_sprt delim p = match List.length p with 
        0 -> "" | 
@@ -64,7 +71,7 @@ let create_component cname cobj components =
    in let entity cname cobj = (* entity *) 
 	    let s = port_gen cname cobj     
 	     in "entity " ^ cname ^ "  is \n\nport (\n" ^
-		"\tclk : in std_logic;\n\trst : in std_logic;\n" ^ s ^ ");\n\nend main;\n\n"   
+		"\tclk : in std_logic;\n\trst : in std_logic;\n" ^ s ^ ");\n\nend " ^ cname ^ ";\n\n"   
 	     
    
 (* Evaluate expressions *) 
@@ -72,8 +79,8 @@ let create_component cname cobj components =
     Num(i) -> string_of_int i, env 
     | Id(i) -> i, {sens_list = i::env.sens_list;} (* the list is keeping track of variables for the sensitivity list*) 
     | Barray(bs, idx, _) -> bs.name ^ "[" ^ (string_of_int idx) ^ "]" (* will need to consider if we let the programmar use expr at all. Right now it is using the size as index, which is inaccurate *), {sens_list = bs.name::env.sens_list;} (* right now using "a" rather than "a[i]" in the sensitivity list *)  
-	| Subbus(bs, strt, stop) -> bs.name ^ "(" ^ (string_of_int strt) ^ ":" ^ (string_of_int stop) ^ ")", 
-	{sens_list =  bs.name::env.sens_list; }      
+	| Subbus(bs, strt, stop) -> bs.name ^ "(" ^ (string_of_int stop) ^ " downto " ^ (string_of_int strt) ^ ")", 
+	{sens_list =  bs.name::env.sens_list;}      
     | Unop(op,e1) -> let v1, env = eval e1 env in 
     ( match op with 
       Umin -> "- " ^ v1  
@@ -134,20 +141,27 @@ let create_component cname cobj components =
 		   in env, (s3 ^ if_block ^ s5 ^ "\t\tend if;\n") ) 		      
 	| Pos(s2) -> raise (Failure ("Pos not supported yet " ))    
 	| Call(fdecl, out_list, in_list ) ->
+	   (* start of f *) 
+	   let f (s,l) b = 
+	    let s1 = (match (List.hd l) with Id(i) -> i 
+	   | Barray(bs, idx, _) -> bs.name ^ "[" ^ (string_of_int idx) ^ "]"(* TODO *)
+	   | Subbus(bs, strt, stop) -> bs.name ^ "(" ^ (string_of_int stop) ^ " downto " ^ (string_of_int strt) ^ ")"
+	   | x ->  raise (Failure ("In/Output port mapping must use pre-existing variables " ))   ) 
+	   in  s^",\n\t\t"^b.name^" => " ^ s1 , List.tl l   (* end of f *) 
 	   
-	    (* need to fix for multiple instances of the same component *) 
-	    let s = str ^ fdecl.fid ^ "_0 : " ^ fdecl.fid ^ " port map (\n\t\tclk => clk,\n \t\trst => rst" 
-	    in let f (s,env,l) b = 
-	    let s1,env = (match (List.hd l) with 
-	     Id(i) -> i, {sens_list = i::env.sens_list;} (* need to handle sensitivity list *) 
-	   | Barray(bs, idx, _) -> bs.name ^ "[" ^ (string_of_int idx) ^ "]" (* will need to consider if we let the programmar use expr at all *), {sens_list = bs.name::env.sens_list;} (* right now using a rather than a[i] in the sensitivity list *)  
-	   | Subbus(bs, strt, stop) -> bs.name ^ "(" ^ (string_of_int strt) ^ ":" ^ (string_of_int stop) ^ ")", {sens_list = bs.name::env.sens_list; }  
-	   | x ->  raise (Failure ("In/Output port mapping must use pre-existing variables " ))   ) in  s^",\n\t\t"^b.name^" => " ^ s1 , env, List.tl l    
-	    
-	    in let env = {sens_list = "rst"::("clk"::env.sens_list);}  
-	    in let s,env,_ = List.fold_left f (s,env,in_list) fdecl.pin
-	    in let s,_,_ = List.fold_left f (s,{sens_list=[];},out_list) fdecl.pout (* discard senstivity list updates due to the output ports *)  
-	    in env, s ^ ");\n"     
+	   (* When a function uses the same component multiple times, it needs to use unique labels to describe the 
+	   separate instantiations. One way to do this is to append a string that is a function of the head of the 
+	   output_list. The output_list is guranteed to be non-empty, SAST should also gurantee that the same output 
+	   variable does not get used in two different calls as outputs. *) 
+	   in let label = (match (List.hd out_list) with Id(i) -> i 
+	    |  Barray(bs, idx, _) ->  bs.name (*TODO*)  
+	    | Subbus(bs, strt, stop) -> bs.name ^ "_" ^ (string_of_int strt) ^ "_" ^ (string_of_int stop)
+	    | x->  raise (Failure ("In/Output port mapping must use pre-existing variables " )) ) 
+	   in  let s = str ^ fdecl.fid ^ "_" ^ label ^ " : " ^ fdecl.fid ^ " port map (\n\t\tclk => clk,\n \t\trst => rst" 
+	   	   
+	    in let s,_ = List.fold_left f (s,in_list) fdecl.pin
+	    in let s,_ = List.fold_left f (s,out_list) fdecl.pout 
+	    in {sens_list=env.sens_list;}, s ^ ");\n"     
 	| x -> 	raise (Failure ("Statement not supported yet " )) )
     and translate_case left (env,s) (e,stmt) = 
       ( match e with 
@@ -161,8 +175,10 @@ let create_component cname cobj components =
          
 
     in let print_process prev (env,s) =  
-	 let ss = delim_sprt ", " (uniq env.sens_list)
-	 in prev ^ "\n\tprocess (" ^ ss ^ ")\n\tbegin\n" ^ s ^ "\n\tend process;\n"	  
+     let l = uniq env.sens_list in 
+     ( match l with   [] -> prev ^ s (* Don't make this a process if nothing in the sensitivity list *)  
+                    | x  -> let ss = delim_sprt ", " l
+	                in prev ^ "\n\tprocess (" ^ ss ^ ")\n\tbegin\n" ^ s ^ "\n\tend process;\n" )	  
    
     in let body cobj = 
     let empty_env = {sens_list=[];} 
@@ -179,8 +195,9 @@ let create_component cname cobj components =
     in let comp_decl s fdecl = 
 	    let s1 = port_gen fdecl.fid fdecl     
 	     in s ^ "component " ^ fdecl.fid ^  "\nport (\n" ^
-		"\tclk : in std_logic;\n\trst : in std_logic;\n" ^ s1 ^ ");\nend component;\n\n"  
-    in let cl_s = List.fold_left comp_decl "" cobj.fcalls    
+		"\tclk : in std_logic;\n\trst : in std_logic;\n" ^ s1 ^ ");\nend component;\n\n" 
+	(* if same component is used twice, we just print them once, hence the call to uniq_calls *) 	 
+    in let cl_s = List.fold_left comp_decl "" (uniq_calls cobj.fcalls)    
     in "architecture e_" ^ cname ^ " of  " ^ cname ^ " is \n\n" ^ cl_s ^ "\n\nbegin\n"
       ^ behavior
       ^ "\n\nend e_" ^ cname ^ ";\n\n"

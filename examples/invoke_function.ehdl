@@ -1,10 +1,15 @@
+const int(4) mm = 2; 
+
 int(32) c adder(int(32) a, int(32) b) { 
 	c = a + b;  // perform check that c has the same type as return value
 }
 
 
-int(32) c main(int(32) a, int(32) b) { 
-	(c) = adder(a,b); 
+(int(32) c, int(32) d, int(8) g) main(int(32) e, int(32) f) { 
+	(c) = adder(e,f); 
+	(d) = adder(f,e(0:31)); 
+	
+	g = e(0:7);
 }
 
 

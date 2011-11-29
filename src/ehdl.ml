@@ -79,7 +79,7 @@ let create_component cname cobj components =
     | Id(i) -> i, {sens_list = i::env.sens_list;} (* the list is keeping track of variables for the sensitivity list*) 
     | Barray(bs, idx, _) -> bs.name ^ "[" ^ (string_of_int idx) ^ "]" (* will need to consider if we let the programmar use expr at all. Right now it is using the size as index, which is inaccurate *), {sens_list = bs.name::env.sens_list;} (* right now using "a" rather than "a[i]" in the sensitivity list *)  
     | Subbus(bs, strt, stop) -> let range = 
-		   if strt < stop then "(" ^ (string_of_int strt) ^ " to " ^ (string_of_int stop) ^ ")" else
+		   if strt < stop then "(" ^ (string_of_int stop) ^ " downto " ^ (string_of_int strt) ^ ")" else
 			"(" ^ (string_of_int strt) ^ " downto " ^ (string_of_int stop) ^ ")"
 		in bs.name ^ range, 
 	{sens_list =  bs.name::env.sens_list;}      
@@ -89,7 +89,7 @@ let create_component cname cobj components =
     | Not -> "not " ^ v1
     | x -> raise (Failure ("ERROR: Invalid Unary Operator ")) ), env 
     | Binop(e1,op,e2) -> 
-     let v1, env = eval e1 env  in let v2, env = eval e2 env 
+     let v1, env = eval e1 env  in let v2, env = eval e2 env
      in (match op with 
 	 Add  -> v1 ^ " + " ^ v2
        | Sub  -> v1 ^ " - " ^ v2 
@@ -114,7 +114,7 @@ let create_component cname cobj components =
    | Subasn(i, strt, stop, e1) -> let v1, env = eval e1 env
 		in let slv_v1 = num_to_slv v1 ((abs (strt - stop)+1))
 		  in let range = 
-		   if strt < stop then "(" ^ (string_of_int strt) ^ " to " ^ (string_of_int stop) ^ ")" else
+		   if strt < stop then "(" ^ (string_of_int stop) ^ " downto " ^ (string_of_int strt) ^ ")" else
 			"(" ^ (string_of_int strt) ^ " downto " ^ (string_of_int stop) ^ ")"
 		in ("\t\t" ^ i.name ^ range ^ " <= " ^ slv_v1 ^ ";\n" ) , env
    | Aasn(i,sz,e1,e2) -> let v1, env = eval e1 env (* may want to restrict what e1 can be, I say just make num or const *)

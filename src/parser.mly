@@ -108,7 +108,7 @@ stmt :
 | FOR LPAREN asn_expr SEMI other_expr SEMI other_expr RPAREN stmt  { For($3,$5,$7,$9) }
 | WHILE LPAREN other_expr RPAREN stmt			{ While($3, $5) }
 | SWITCH LPAREN other_expr RPAREN LBRACE case_stmt case_list RBRACE{ Switch($3,$6::(List.rev $7)) } /* Enforcing at least one case_stmt in the parser so no need to do it later */ 
-| LPAREN out_actuals_list RPAREN ASN ID LPAREN in_actuals_list RPAREN SEMI	{ Call($5, (List.rev $2), (List.rev $7)) }
+| LPAREN actuals_list RPAREN ASN ID LPAREN actuals_list RPAREN SEMI	{ Call($5, (List.rev $2), (List.rev $7)) }
 
 
 stmt_list :
@@ -119,18 +119,12 @@ expr :
   other_expr		{ $1 }
 | asn_expr		{ $1 }
 
+
 other_expr :
-  ref_expr		{ $1 }
-| op_expr		{ $1 }
-
-
-ref_expr :
-  ID						{ Id($1) }
+  NUM						{ Num($1) }
+| ID						{ Id($1) }
 | ID LBRACKET other_expr RBRACKET		{ Barray($1, $3) }
 | ID LPAREN NUM COLON NUM RPAREN		{ Subbus($1, $3, $5) }
-
-op_expr :
-  NUM						{ Num($1) }
 | MINUS other_expr %prec UMINUS			{ Unop(Umin, $2) }
 | NOT other_expr %prec NOT			{ Unop(Not, $2) }
 | other_expr PLUS other_expr			{ Binop($1, Add, $3) }
@@ -164,18 +158,13 @@ case_stmt :
   CASE other_expr COLON stmt_list {($2,Block($4)) } 
 | DEFAULT COLON stmt_list {(Noexpr,Block($3))}
 
-out_actuals_list :
-  out_actuals_rlist			{ List.rev $1 }
 
-out_actuals_rlist :
-  ref_expr				{ [$1] } 
-| out_actuals_list COMMA ref_expr	{ $3 :: $1 }
+/* ehdl.ml checks whether expressions are used*/
+actuals_list :
+  actuals_rlist			{ List.rev $1 }
 
-in_actuals_list :
-  in_actuals_rlist			{ List.rev $1 }
-
-in_actuals_rlist :
+actuals_rlist :
   other_expr				{ [$1] } 
-| in_actuals_list COMMA other_expr	{ $3 :: $1 }
+| actuals_list COMMA other_expr		{ $3 :: $1 }
 
   

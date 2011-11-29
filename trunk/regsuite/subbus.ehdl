@@ -1,0 +1,4 @@
+int(32) c main(int(32) a, int(32) b) { 
+	c(7:0) = a(15:8) + b(31:24);  // perform check that c has the same type as return value
+	c(31:8) = 0;
+}

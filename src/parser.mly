@@ -140,6 +140,7 @@ expr :
 | expr SHR expr			{ Binop($1, Shr, $3) }
 | ID ASN expr			{ Basn($1, $3) }
 | ID LBRACKET expr RBRACKET ASN expr { Aasn($1, $3, $6) }
+| ID LPAREN NUM COLON NUM RPAREN ASN expr {Subasn($1, $3, $5, $8)}
 
 case_list :
  { [] : (expr * stmt) list} 

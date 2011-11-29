@@ -1,0 +1,5 @@
+#! /bin/bash
+./ehdl $1
+rm -rf work
+vlib work
+vcom main.vhd

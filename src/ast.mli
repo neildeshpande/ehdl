@@ -18,6 +18,7 @@ type expr =
 | Binop of expr * operator * expr	(* Binary operations *)
 | Basn of string * expr			(* bus name * value *)
 | Aasn of string * expr * expr		(* Array name * array index * value *)
+| Subasn of string * int * int * expr	(* Bus name * bit range * value *)
 | Noexpr
 
 

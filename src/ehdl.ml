@@ -57,7 +57,7 @@ let port_gen cname cobj =
 (*Auxiliary function: adds conv_std_logic_vector *)
 let num_to_slv v size =
    try let _ = int_of_string v
-	in "conv_std_logic_vector("^v^","^(string_of_int size)^")"
+	in "ieee.std_logic_arith.conv_std_logic_vector("^v^","^(string_of_int size)^")"
    with Failure(s) -> v	     
 	     
 
@@ -65,7 +65,6 @@ let translate (genv, ftable) =
 let create_component cname cobj components = 
   let libraries = "\nlibrary ieee;\n" ^ 
     "use ieee.std_logic_1164.all;\n" ^
-    "use ieee.std_logic_arith.all;\n" ^
     "use ieee.std_logic_signed.all;\n\n\n"
 
    in let entity cname cobj = (* entity *) 
@@ -79,7 +78,10 @@ let create_component cname cobj components =
     Num(i) -> string_of_int i, env 
     | Id(i) -> i, {sens_list = i::env.sens_list;} (* the list is keeping track of variables for the sensitivity list*) 
     | Barray(bs, idx, _) -> bs.name ^ "[" ^ (string_of_int idx) ^ "]" (* will need to consider if we let the programmar use expr at all. Right now it is using the size as index, which is inaccurate *), {sens_list = bs.name::env.sens_list;} (* right now using "a" rather than "a[i]" in the sensitivity list *)  
-	| Subbus(bs, strt, stop) -> bs.name ^ "(" ^ (string_of_int stop) ^ " downto " ^ (string_of_int strt) ^ ")", 
+    | Subbus(bs, strt, stop) -> let range = 
+		   if strt < stop then "(" ^ (string_of_int strt) ^ " to " ^ (string_of_int stop) ^ ")" else
+			"(" ^ (string_of_int strt) ^ " downto " ^ (string_of_int stop) ^ ")"
+		in bs.name ^ range, 
 	{sens_list =  bs.name::env.sens_list;}      
     | Unop(op,e1) -> let v1, env = eval e1 env in 
     ( match op with 
@@ -108,7 +110,13 @@ let create_component cname cobj components =
        | x    -> raise (Failure ("ERROR: Invalid Binary Operator "))), env
    | Basn(i, e1) -> let v1, env = eval e1 env
 		in  let slv_v1 = num_to_slv v1 i.size
-		  in ("\t\t" ^ i.name ^ " <= " ^ slv_v1 ^ ";\n" ) , env   
+		  in ("\t\t" ^ i.name ^ " <= " ^ slv_v1 ^ ";\n" ) , env
+   | Subasn(i, strt, stop, e1) -> let v1, env = eval e1 env
+		in let slv_v1 = num_to_slv v1 ((abs (strt - stop)+1))
+		  in let range = 
+		   if strt < stop then "(" ^ (string_of_int strt) ^ " to " ^ (string_of_int stop) ^ ")" else
+			"(" ^ (string_of_int strt) ^ " downto " ^ (string_of_int stop) ^ ")"
+		in ("\t\t" ^ i.name ^ range ^ " <= " ^ slv_v1 ^ ";\n" ) , env
    | Aasn(i,sz,e1,e2) -> let v1, env = eval e1 env (* may want to restrict what e1 can be, I say just make num or const *)
              in let v2, env = eval e2 env 
 		     in  let slv_v2 = num_to_slv v2 i.size
@@ -119,7 +127,8 @@ let create_component cname cobj components =
  in let rec translate_stmt (env,str) stmt = 
     (  match stmt with  
 	  Block(stmts)  -> List.fold_left translate_stmt (env,str) (List.rev stmts) 
-	| Expr(e) -> let s,env = eval (fst e) env  in (env, (str ^ s))   
+	| Expr(ex) -> let (e, ex_t, ex_s) = ex
+	    in let s,env = eval e env  in (env, (str ^ s))   
 	| If(e,if_stmt,else_stmt) -> 
 	    let s,env = eval e env 
 	    in let env,if_block = translate_stmt(env,"") if_stmt
@@ -212,8 +221,8 @@ let print_programs filename components =
      maybe components should be a list *)
   (* let s = CompMap.find "main" components *) 
   let s = CompMap.fold ( fun k d s -> s ^ d ) components ""   
-  (*in let out_channel = open_out (filename ^ ".vhdl" ) *) 
-    in let out_channel = open_out "main.vhdl"
+  (*in let out_channel = open_out (filename ^ ".vhd" ) *) 
+    in let out_channel = open_out "main.vhd"
      in output_string out_channel s  
 
 

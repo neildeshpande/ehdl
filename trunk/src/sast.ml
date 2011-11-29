@@ -36,7 +36,7 @@ type function_decl = {	pout : Ast.bus list;
 	 fid  : string;
 	 pin  : Ast.bus list;
 	 floc : translation_environment;
-     fcalls : function_decl list; (* list of other functions that are called by this function *)  
+     	 fcalls : function_decl list; (* list of other functions that are called by this function *)  
 	 fbod : s_stmt list;
 }
 

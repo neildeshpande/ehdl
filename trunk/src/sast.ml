@@ -2,7 +2,11 @@ open Ast
 
 module StringMap = Map.Make(String);;
 
-(*let function_table = StringMap.empty*)
+(*Auxiliary functions*)
+(*USE THIS FUNCTION FOR TYPE CHECKING WHEN NEEDED!*)
+let bit_required x = 
+let log2 y = int_of_float ( ((log (float_of_int y)) /. (log 2.)) )
+in ((log2 x) + 1)
 
 exception Error of string  
 
@@ -45,9 +49,14 @@ and expr_detail =
 | Binop of expr_detail * Ast.operator * expr_detail
 | Basn of Ast.bus * expr_detail
 | Aasn of Ast.bus * int * expr_detail * expr_detail
+| Subasn of Ast.bus * int * int * expr_detail
 | Noexpr
-  
-and expression = expr_detail * types
+
+(* expression * type retuned * size *)
+(* To return the size of expr is redundant, but helpful for type checking!!*)
+(* The field returns the size of the bus, even with arr ays, because
+   the size of the array is already stored in the symbol_table *)
+and expression = expr_detail * types * int 
 
 and s_stmt = 
     Block of s_stmt list
@@ -98,12 +107,13 @@ let check_and_add_local (vbus, x, t, lt, dr) (env : translation_environment) =
 (* Raise error if incompatible else return unit *)
 (*!!! WHILE WRITING THESE FUNCTIONS, CHECK THE LAST FIELD OF THE VARIABLES:
       IF TRUE RAISE "Variable <vname> has more than one driver"       !!!*)
-let check_types e1 op e2 = ()
-let check_basn vbus e1 = () 
+let check_types e1 op e2 = 32 (*Must return also the size of the output!!!*)
+let check_basn vbus e1 = ()
+let check_subasn vbus x y e1 = ()
 let check_aasn vbus e1 e2 = ()
 let check_call env out_actuals in_actuals func_decl = ()
 let check_subbus vbus x y = ()
-let check_array_dereference  varray size e1 = ()
+let check_array_dereference  varray size e1 s1 = ()
 let check_conditional e1 t1 = ()
 let check_pos_expr e1 = ()
 let check_switchable e1 t1 = ()
@@ -113,7 +123,9 @@ let check_function_params fd expr_detail_list = ()
 (*Check expressions *)
 let rec chk_expr function_table env = function
 (* An integer constant: convert and return Int type *)
-	Ast.Num(v) -> Num(v), Const
+	Ast.Num(v) ->
+	let min_size = bit_required v in
+	Num(v), Const, min_size (*If assigned to the bus vbus, check that vbus.size >= min_size!!*)
 (* An identifier: verify it is in scope and return its type *)
   | Ast.Id(vname) ->
     	let vbus, _, vtype, _, _ = 
@@ -121,60 +133,67 @@ let rec chk_expr function_table env = function
     			find_variable env.scope vname (* locate a variable by name *)
     		with Not_found ->
     			raise (Error("undeclared identifier " ^ vname))
-    	in Id(vbus.name), vtype (*Be careful!!! An Id could be a constant, a bus or an array!*)
+    	in Id(vbus.name), vtype, vbus.size (*Be careful!!! An Id could be a constant, a bus or an array!*)
   | Ast.Binop(e1, op, e2) ->
     	let e1 = chk_expr function_table env e1 (* Check left and right children *)
-		and e2 = chk_expr function_table env e2 in
-    	check_types e1 op e2;
-		Binop(fst e1, op, fst e2), Bus (* Success: result is bus *)
+		and e2 = chk_expr function_table env e2
+    	in let output_size = check_types e1 op e2 in
+	let (e1,_,_) = e1 and (e2,_,_) = e2
+	in Binop(e1, op, e2), Bus, output_size (* Success: result is bus *)
   | Ast.Basn(vname, e1) ->
 		let e1 = chk_expr function_table env e1
   and vbus, _, _, _, _ = find_variable env.scope vname
-    	in
-    	check_basn vbus e1;
-    	Basn(vbus, fst e1), Bus
+    	in let _ = check_basn vbus e1
+	in let (e1, _, _) = e1
+	in Basn(vbus, e1), Bus, vbus.size
+  | Ast.Subasn(vname, x, y, e1) ->
+	let e1 = chk_expr function_table env e1
+  and vbus, _, _, _, _ = find_variable env.scope vname
+	in let _ = check_subasn vbus x y e1
+	in let (e1, _, _) = e1
+	in Subasn(vbus, x, y, e1), Bus, (abs(x-y) +1);
   | Ast.Aasn(vname, e1, e2) ->
 		let e1 = chk_expr function_table env e1
   		and e2 = chk_expr function_table env e2
   		and vbus, size, _, _, _ = find_variable env.scope vname
-    	in
-    	check_aasn vbus e1 e2;
-    	Aasn(vbus, size, fst e1, fst e2), Bus
+    	in let _ = check_aasn vbus e1 e2
+	in let (e1, _, _) = e1 and (e2, _, _) = e2
+    	in Aasn(vbus, size, e1, e2), Bus, vbus.size
   (* NEED TO CHECK OUTPUT PORTS MATCH WITH LOCALS ASSIGNMENT!!!*)
   | Ast.Unop(op, e1) ->
-    	let (e1, t1) = chk_expr function_table env e1
-     in Unop(op, e1), t1
+    	let (e1, t1, s1)= chk_expr function_table env e1
+     in Unop(op, e1), t1, s1
   | Ast.Subbus(vname, x, y) ->
     	let vbus, _, _, _, _ = find_variable env.scope vname
      	in check_subbus vbus x y;
-    	Subbus(vbus, x, y), Bus
+    	Subbus(vbus, x, y), Bus, (abs(x-y) +1)
   | Ast.Barray(vname, e1) ->
-    	let (e1, t1) = chk_expr function_table env e1
+    	let (e1, t1, s1) = chk_expr function_table env e1
      and varray, size, vtype, _, _ = find_variable env.scope vname
-     in check_array_dereference varray size e1;
-    Barray(varray, size, e1), vtype (*Be careful!!! A reference to array a[i] returns always a varray type!*)
-  | Ast.Noexpr -> Noexpr, Void
+     in check_array_dereference varray size e1 s1;
+    Barray(varray, size, e1), vtype, varray.size (*Be careful!!! A reference to array a[i] returns always a varray type!*)
+  | Ast.Noexpr -> Noexpr, Void, 0
 
 
 (*Check Statements*)
 let rec chk_stmt function_table env = function
     Ast.Expr(e) -> Expr(chk_expr function_table env e)
   | Ast.If(e1, s1, s2) ->
-    	let e1, t1 = chk_expr function_table env e1
+    	let e1, t1, _ = chk_expr function_table env e1
      in check_conditional e1 t1;
     If(e1, chk_stmt function_table env s1, chk_stmt function_table env s2)
   | Ast.For(e1, e2, e3, s1) ->
-    	let e1, t1 = chk_expr function_table env e1
-     	and e2, t2 = chk_expr function_table env e2
-     	and e3, t3 = chk_expr function_table env e3
+    	let e1, t1, _= chk_expr function_table env e1
+     	and e2, t2, _= chk_expr function_table env e2
+     	and e3, t3, _= chk_expr function_table env e3
       in check_conditional e1 t1;
     For(e1, e2, e3, chk_stmt function_table env s1)
   | Ast.While(e1, s1) ->
-    	let e1, t1 = chk_expr function_table env e1
+    	let e1, t1, _= chk_expr function_table env e1
      	in check_conditional e1 t1;
     	While(e1, chk_stmt function_table env s1)
   | Ast.Pos(e1) ->
-    	let e1, t1 = chk_expr function_table env e1
+    	let e1, t1, _= chk_expr function_table env e1
      	in check_pos_expr e1;
     	Pos(e1)
   | Ast.Block(slist) ->
@@ -197,10 +216,10 @@ let rec chk_stmt function_table env = function
 	in let _ = print_endline "parsed a Block"
 	in Block(new_stmt_list)
   | Ast.Switch(e, caselist) ->
-    	let e, t1 = chk_expr function_table env e
+    	let e, t1, _ = chk_expr function_table env e
      	in let _ = check_switchable e t1
 	in let chk_case_list (env : translation_environment) ( (e1, s1) : (Ast.expr * Ast.stmt) ) =
-            let e1, _ = chk_expr function_table env e1
+            let e1, _, _ = chk_expr function_table env e1
             in let s1 = chk_stmt function_table env s1
 	    in (e1, s1)
 	in let rec clist_helper l = function
@@ -218,9 +237,9 @@ let rec chk_stmt function_table env = function
          with Not_found -> raise (Failure ("undefined function " ^ fname))
     in let _ = check_call env out_list in_list func_decl     
     in let inlist = List.fold_left 
-    ( fun l x -> let e1, _ =  chk_expr function_table env x in e1::l ) [] in_list 
+    ( fun l x -> let e1, _, _ =  chk_expr function_table env x in e1::l ) [] in_list 
     in let outlist = List.fold_left 
-    ( fun l x -> let e1, _ =  chk_expr function_table env x in e1::l ) [] out_list
+    ( fun l x -> let e1, _, _ =  chk_expr function_table env x in e1::l ) [] out_list
 (* Uncomment to check if Function Call is parsed *)
 	in let _ = print_endline "Function Call parsed"
 	in Call(func_decl, outlist, inlist)

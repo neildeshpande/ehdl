@@ -76,8 +76,13 @@ let create_component cname cobj components =
 (* Evaluate expressions *) 
  in let rec eval e env = match e with
     Num(i) -> string_of_int i, env 
-    | Id(i) -> i, {sens_list = i::env.sens_list;} (* the list is keeping track of variables for the sensitivity list*) 
-    | Barray(bs, idx, _) -> bs.name ^ "[" ^ (string_of_int idx) ^ "]" (* will need to consider if we let the programmar use expr at all. Right now it is using the size as index, which is inaccurate *), {sens_list = bs.name::env.sens_list;} (* right now using "a" rather than "a[i]" in the sensitivity list *)  
+    | Id(i) -> i, {sens_list = i::env.sens_list;} (* the list is keeping track of variables for the sensitivity list*)
+    | Barray(bs, _, e1) -> let v1, env = match e1 with
+      			  Num(i) -> (string_of_int i), env
+    			| x -> let i, env = eval x env (*TODO: This does not handle for loop index!*)
+				in ("ieee.std_logic_unsigned.conv_integer(" ^ i ^ ")"), env
+		in bs.name ^ "(" ^ v1 ^ ")", {sens_list = bs.name::env.sens_list;} 
+		(* Using "a" rather than "a(i)" in the sensitivity list, which is fine, because the list must be static *)  
     | Subbus(bs, strt, stop) -> let range = 
 		   if strt < stop then "(" ^ (string_of_int stop) ^ " downto " ^ (string_of_int strt) ^ ")" else
 			"(" ^ (string_of_int strt) ^ " downto " ^ (string_of_int stop) ^ ")"
@@ -105,7 +110,7 @@ let create_component cname cobj components =
        | Or   -> v1 ^ " or " ^ v2
        | And  -> v1 ^ " and " ^ v2
        | Xor  -> v1 ^ " xor  " ^ v2
-       | Shl  -> v1 ^ " sll " ^ v2 (*check that v2 is an integer,here or parser ? *)
+       | Shl  -> v1 ^ " sll " ^ v2
        | Shr  -> v1 ^ " srl " ^ v2 
        | x    -> raise (Failure ("ERROR: Invalid Binary Operator "))), env
    | Basn(i, e1) -> let v1, env = eval e1 env
@@ -117,10 +122,13 @@ let create_component cname cobj components =
 		   if strt < stop then "(" ^ (string_of_int stop) ^ " downto " ^ (string_of_int strt) ^ ")" else
 			"(" ^ (string_of_int strt) ^ " downto " ^ (string_of_int stop) ^ ")"
 		in ("\t\t" ^ i.name ^ range ^ " <= " ^ slv_v1 ^ ";\n" ) , env
-   | Aasn(i,sz,e1,e2) -> let v1, env = eval e1 env (* may want to restrict what e1 can be, I say just make num or const *)
+   | Aasn(i,sz,e1,e2) -> let v1, env = match e1 with
+      			  Num(i) -> (string_of_int i), env
+    			| x -> let i, env = eval x env (*TODO: This does not handle for loop index!*)
+				in ("ieee.std_logic_unsigned.conv_integer(" ^ i ^ ")"), env
              in let v2, env = eval e2 env 
 		     in  let slv_v2 = num_to_slv v2 i.size
-		     in ("\t\t" ^ i.name ^ "[" ^ v1 ^ "] " ^ " <= " ^ slv_v2 ^ ";\n" ) , env    		  
+		     in ("\t\t" ^ i.name ^ "(" ^ v1 ^ ") " ^ " <= " ^ slv_v2 ^ ";\n" ), env    		  
    | x ->  raise (Failure ("Expression not supported yet " ))
 
  (* translate_Stmt *)
@@ -152,9 +160,13 @@ let create_component cname cobj components =
 	| Call(fdecl, out_list, in_list ) ->
 	   (* start of f *) 
 	   let f (s,l) b = 
-	    let s1 = (match (List.hd l) with Id(i) -> i 
-	   | Barray(bs, idx, _) -> bs.name ^ "[" ^ (string_of_int idx) ^ "]"(* TODO *)
-	   | Subbus(bs, strt, stop) -> bs.name ^ "(" ^ (string_of_int stop) ^ " downto " ^ (string_of_int strt) ^ ")"
+	    let s1 = (match (List.hd l) with
+	     Id(i) -> i
+	   | Barray(bs, idx, _) -> bs.name ^ "(" ^ (string_of_int idx) ^ ")"(* TODO idx is actually array size!*)
+	   | Subbus(bs, strt, stop) -> let range = 
+		   if strt < stop then "(" ^ (string_of_int stop) ^ " downto " ^ (string_of_int strt) ^ ")" else
+			"(" ^ (string_of_int strt) ^ " downto " ^ (string_of_int stop) ^ ")"
+			in bs.name ^ range
 	   | x ->  raise (Failure ("In/Output port mapping must use pre-existing variables " ))   ) 
 	   in  s^",\n\t\t"^b.name^" => " ^ s1 , List.tl l   (* end of f *) 
 	   
@@ -162,8 +174,9 @@ let create_component cname cobj components =
 	   separate instantiations. One way to do this is to append a string that is a function of the head of the 
 	   output_list. The output_list is guranteed to be non-empty, SAST should also gurantee that the same output 
 	   variable does not get used in two different calls as outputs. *) 
-	   in let label = (match (List.hd out_list) with Id(i) -> i 
-	    |  Barray(bs, idx, _) ->  bs.name (*TODO*)  
+	   in let label = (match (List.hd out_list) with
+	      Id(i) -> i 
+	    | Barray(bs, idx, _) ->  bs.name (*TODO*)  
 	    | Subbus(bs, strt, stop) -> bs.name ^ "_" ^ (string_of_int strt) ^ "_" ^ (string_of_int stop)
 	    | x->  raise (Failure ("In/Output port mapping must use pre-existing variables " )) ) 
 	   in  let s = str ^ fdecl.fid ^ "_" ^ label ^ " : " ^ fdecl.fid ^ " port map (\n\t\tclk => clk,\n \t\trst => rst" 

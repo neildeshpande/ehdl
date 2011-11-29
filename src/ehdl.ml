@@ -86,8 +86,7 @@ let create_component cname cobj components =
     | Subbus(bs, strt, stop) -> let range = 
 		   if strt < stop then "(" ^ (string_of_int stop) ^ " downto " ^ (string_of_int strt) ^ ")" else
 			"(" ^ (string_of_int strt) ^ " downto " ^ (string_of_int stop) ^ ")"
-		in bs.name ^ range, 
-	{sens_list =  bs.name::env.sens_list;}      
+		in bs.name ^ range, {sens_list =  bs.name::env.sens_list;}      
     | Unop(op,e1) -> let v1, env = eval e1 env in 
     ( match op with 
       Umin -> "- " ^ v1  
@@ -156,18 +155,34 @@ let create_component cname cobj components =
            in let env,if_block = translate_stmt (env,"") stmt
 		   in let env,s5 = List.fold_left (translate_case s1) (env,"") tl 	
 		   in env, (s3 ^ if_block ^ s5 ^ "\t\tend if;\n") ) 		      
-	| Pos(s2) -> raise (Failure ("Pos not supported yet " ))    
+	| Pos(s2) -> raise (Failure ("Pos not supported yet " ))
+
+
 	| Call(fdecl, out_list, in_list ) ->
 	   (* start of f *) 
-	   let f (s,l) b = 
+	   let f (s,l) b =
+
+		let actual_barray bs =  function
+			  Num(i) -> string_of_int i
+			| Id(i) -> (try let _ = find_variable genv.scope i in ("ieee.std_logic_unsigned.conv_integer(" ^ i ^ ")")
+			   	   with Error(_) -> raise (Failure("Function Call to " ^ fdecl.fid ^ ": actual "^ bs.name ^ " is not static"))  )
+			| Subbus(sbs, strt, stop) -> ( try let _ = find_variable genv.scope sbs.name
+								in let range = 
+		  						  if strt < stop then "(" ^ (string_of_int stop) ^ " downto " ^ (string_of_int strt) ^ ")" else
+										      "(" ^ (string_of_int strt) ^ " downto " ^ (string_of_int stop) ^ ")"
+								in ("ieee.std_logic_unsigned.conv_integer(" ^ sbs.name ^ range ^ ")")
+						    	    with Error(_) -> raise (Failure("Function Call to " ^ fdecl.fid ^ ": actual "^ bs.name ^ " is not static"))	)
+    			| x -> raise (Failure("Function Call to " ^ fdecl.fid ^ ": illegal actual assignment"))
+ 	    in
 	    let s1 = (match (List.hd l) with
 	     Id(i) -> i
-	   | Barray(bs, idx, _) -> bs.name ^ "(" ^ (string_of_int idx) ^ ")"(* TODO idx is actually array size!*)
+	   | Barray(bs, _, e1) -> let v1 = actual_barray bs e1
+				in bs.name^"("^v1^")"	
 	   | Subbus(bs, strt, stop) -> let range = 
 		   if strt < stop then "(" ^ (string_of_int stop) ^ " downto " ^ (string_of_int strt) ^ ")" else
 			"(" ^ (string_of_int strt) ^ " downto " ^ (string_of_int stop) ^ ")"
 			in bs.name ^ range
-	   | x ->  raise (Failure ("In/Output port mapping must use pre-existing variables " ))   ) 
+	   | x ->  raise (Failure ("Function Call to " ^ fdecl.fid ^ ": In/Output port mapping must use pre-existing variables " ))   ) 
 	   in  s^",\n\t\t"^b.name^" => " ^ s1 , List.tl l   (* end of f *) 
 	   
 	   (* When a function uses the same component multiple times, it needs to use unique labels to describe the 
@@ -183,7 +198,9 @@ let create_component cname cobj components =
 	   	   
 	    in let s,_ = List.fold_left f (s,in_list) fdecl.pin
 	    in let s,_ = List.fold_left f (s,out_list) fdecl.pout 
-	    in {sens_list=env.sens_list;}, s ^ ");\n"     
+	    in {sens_list=env.sens_list;}, s ^ ");\n"
+
+
 	| x -> 	raise (Failure ("Statement not supported yet " )) )
     and translate_case left (env,s) (e,stmt) = 
       ( match e with 

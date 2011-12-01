@@ -128,8 +128,9 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
    | Aasn(bs,sz,e1,e2) -> let v1, env, asn_map = match e1 with
       			  Num(i) -> let am = update_asn (Aasn(bs,sz,e1,Id(bs.name))) 0(*TODO: use cc*) asn_map
 					in (string_of_int i), env, am
-    			| x -> let i, env, asn_map = eval x env asn_map(*TODO: This does not handle for loop index!*)
-				in ("ieee.std_logic_unsigned.conv_integer(" ^ i ^ ")"), env, asn_map
+    			| x -> let am = update_asn (Aasn(bs,sz,x,Id(bs.name))) 0(*TODO: use cc*) asn_map
+				in let i, env, _ = eval x env am(*TODO: This does not handle for loop index!*)
+				in ("ieee.std_logic_unsigned.conv_integer(" ^ i ^ ")"), env, am
              in let v2, env, _ = eval e2 env asn_map
 		     in  let slv_v2 = num_to_slv v2 bs.size
 		     in ("\t\t" ^ bs.name ^ "(" ^ v1 ^ ") " ^ " <= " ^ slv_v2 ^ ";\n" ), env, asn_map

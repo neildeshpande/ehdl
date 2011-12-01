@@ -144,7 +144,7 @@ other_expr :
 | other_expr SHL other_expr			{ Binop($1, Shl, $3) }
 | other_expr SHR other_expr			{ Binop($1, Shr, $3) }
 
-
+/*No multiple assignments within the same line! a = b = c + 1 is not permitted*/
 asn_expr :
 | ID ASN other_expr			{ Basn($1, $3) }
 | ID LBRACKET other_expr RBRACKET ASN other_expr { Aasn($1, $3, $6) }

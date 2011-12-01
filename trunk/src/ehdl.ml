@@ -76,12 +76,12 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
 
    
 (* Evaluate expressions *) 
- in let rec eval e env asn_map = match e with
+ in let rec eval e env asn_map cc= match e with
     Num(i) -> string_of_int i, env, asn_map 
     | Id(i) -> i, {sens_list = i::env.sens_list;}, asn_map (* the list is keeping track of variables for the sensitivity list*)
     | Barray(bs, _, e1) -> let v1, env = match e1 with
       			  Num(i) -> (string_of_int i), env
-    			| x -> let i, env, _ = eval x env asn_map (*TODO: This does not handle for loop index!*)
+    			| x -> let i, env, _ = eval x env asn_map cc(*TODO: This does not handle for loop index!*)
 				in ("ieee.std_logic_unsigned.conv_integer(" ^ i ^ ")"), env
 		in bs.name ^ "(" ^ v1 ^ ")", {sens_list = bs.name::env.sens_list;}, asn_map 
 		(* Using "a" rather than "a(i)" in the sensitivity list, which is fine, because the list must be static *)  
@@ -89,13 +89,13 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
 		   if strt < stop then "(" ^ (string_of_int stop) ^ " downto " ^ (string_of_int strt) ^ ")" else
 			"(" ^ (string_of_int strt) ^ " downto " ^ (string_of_int stop) ^ ")"
 		in bs.name ^ range, {sens_list =  bs.name::env.sens_list;}, asn_map
-    | Unop(op,e1) -> let v1, env, _ = eval e1 env asn_map in 
+    | Unop(op,e1) -> let v1, env, _ = eval e1 env asn_map cc in 
     ( match op with 
       Umin -> "- " ^ v1  
     | Not -> "not " ^ v1
     | x -> raise (Failure ("ERROR: Invalid Unary Operator ")) ), env, asn_map 
     | Binop(e1,op,e2) -> 
-     let v1, env, _ = eval e1 env asn_map in let v2, env, _ = eval e2 env asn_map
+     let v1, env, _ = eval e1 env asn_map cc in let v2, env, _ = eval e2 env asn_map cc
      in (match op with 
 	 Add  -> v1 ^ " + " ^ v2
        | Sub  -> v1 ^ " - " ^ v2 
@@ -114,54 +114,54 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
        | Shl  -> v1 ^ " sll " ^ v2
        | Shr  -> v1 ^ " srl " ^ v2 
        | x    -> raise (Failure ("ERROR: Invalid Binary Operator ")) ), env, asn_map
-   | Basn(i, e1) -> let asn_map = update_asn (Basn(i,Id(i.name))) 0(*TODO: use cc*) asn_map
-		in let v1, env, _ = eval e1 env asn_map
+   | Basn(i, e1) -> let asn_map = update_asn (Basn(i,Id(i.name))) cc asn_map
+		in let v1, env, _ = eval e1 env asn_map cc
 		in  let slv_v1 = num_to_slv v1 i.size
 		  in ("\t\t" ^ i.name ^ " <= " ^ slv_v1 ^ ";\n" ) , env, asn_map
-   | Subasn(i, strt, stop, e1) -> let asn_map = update_asn (Subasn(i, strt, stop, Id(i.name))) 0(*TODO: use cc*) asn_map
-		in let v1, env, _ = eval e1 env asn_map
+   | Subasn(i, strt, stop, e1) -> let asn_map = update_asn (Subasn(i, strt, stop, Id(i.name))) cc asn_map
+		in let v1, env, _ = eval e1 env asn_map cc
 		in let slv_v1 = num_to_slv v1 ((abs (strt - stop)+1))
 		  in let range = 
 		   if strt < stop then "(" ^ (string_of_int stop) ^ " downto " ^ (string_of_int strt) ^ ")" else
 			"(" ^ (string_of_int strt) ^ " downto " ^ (string_of_int stop) ^ ")"
 		in ("\t\t" ^ i.name ^ range ^ " <= " ^ slv_v1 ^ ";\n" ) , env, asn_map
    | Aasn(bs,sz,e1,e2) -> let v1, env, asn_map = match e1 with
-      			  Num(i) -> let am = update_asn (Aasn(bs,sz,e1,Id(bs.name))) 0(*TODO: use cc*) asn_map
+      			  Num(i) -> let am = update_asn (Aasn(bs,sz,e1,Id(bs.name))) cc asn_map
 					in (string_of_int i), env, am
-    			| x -> let am = update_asn (Aasn(bs,sz,x,Id(bs.name))) 0(*TODO: use cc*) asn_map
-				in let i, env, _ = eval x env am(*TODO: This does not handle for loop index!*)
+    			| x -> let am = update_asn (Aasn(bs,sz,x,Id(bs.name))) cc asn_map
+				in let i, env, _ = eval x env am cc(*TODO: This does not handle for loop index!*)
 				in ("ieee.std_logic_unsigned.conv_integer(" ^ i ^ ")"), env, am
-             in let v2, env, _ = eval e2 env asn_map
+             in let v2, env, _ = eval e2 env asn_map cc
 		     in  let slv_v2 = num_to_slv v2 bs.size
 		     in ("\t\t" ^ bs.name ^ "(" ^ v1 ^ ") " ^ " <= " ^ slv_v2 ^ ";\n" ), env, asn_map
    | x ->  raise (Failure ("Expression not supported yet " ))
 
  (* translate_Stmt *)
- in let rec translate_stmt (env,str,asn_map) stmt = 
+ in let rec translate_stmt (env,str,asn_map,cc) stmt = 
     (  match stmt with  
-	  Block(stmts)  -> List.fold_left translate_stmt (env,str,asn_map) (List.rev stmts) 
+	  Block(stmts)  -> List.fold_left translate_stmt (env,str,asn_map,cc) (List.rev stmts) 
 	| Expr(ex) -> let (e, ex_t, ex_s) = ex
-	    in let s,env,asn_map = eval e env asn_map in (env, (str ^ s), asn_map)   
+	    in let s,env,asn_map = eval e env asn_map cc in (env, (str ^ s), asn_map, cc)   
 	| If(e,if_stmt,else_stmt) -> 
-	    let s,env,_ = eval e env asn_map (*In this case asn_map won't change: no assignments in if condition*)
-	    in let env,if_block,asn_map = translate_stmt (env,"",asn_map) if_stmt
-	    in let env,else_block,asn_map = translate_stmt (env,"",asn_map) else_stmt
+	    let s,env,_ = eval e env asn_map cc(*In this case asn_map won't change: no assignments in if condition*)
+	    in let env,if_block,asn_map,_ = translate_stmt (env,"",asn_map,cc) if_stmt
+	    in let env,else_block,asn_map,_ = translate_stmt (env,"",asn_map,cc) else_stmt
 	    in (env, ("\t\tif (" ^ s ^ ") then \n" ^ if_block 
 	    (* the tabbing needs to be done programmatically, not manually. 
 	    I am assuming SAST will tell us the nesting depth *)    
-	    ^ "\n\t\telse\n" ^ else_block ^ "\t\tend if;\n"), asn_map)
+	    ^ "\n\t\telse\n" ^ else_block ^ "\t\tend if;\n"), asn_map,cc)
 	| Switch ( e, c_list ) -> 
 	    ( match c_list with 
-	      [] -> env,"",asn_map
+	      [] -> env,"",asn_map,cc
 	     |hd::tl ->       
 	     (*let s,env,asn_map = eval e env asn_map 
            in *)let (e1, stmt) = hd
-           in let s1,env,_ = eval e env asn_map in let s2,env,_ = eval e1 env asn_map   
+           in let s1,env,_ = eval e env asn_map cc in let s2,env,_ = eval e1 env asn_map cc  
            in let s3 = "\t\tif (" ^ s1 ^ " = " ^ s2 ^ ") then \n"  
-           in let env,if_block,asn_map = translate_stmt (env,"",asn_map) stmt
-		   in let env,s5,asn_map = List.fold_left (translate_case s1) (env,"",asn_map) tl 	
-		   in (env, (s3 ^ if_block ^ s5 ^ "\t\tend if;\n"),asn_map ) )		      
-	| Pos(s2) -> raise (Failure ("Pos not supported yet " ))
+           in let env,if_block,asn_map,_ = translate_stmt (env,"",asn_map,cc) stmt
+		   in let env,s5,asn_map,_ = List.fold_left (translate_case s1) (env,"",asn_map,cc) tl 	
+		   in (env, (s3 ^ if_block ^ s5 ^ "\t\tend if;\n"),asn_map,cc ) )		      
+	| Pos(s2) -> env,"",asn_map,(cc+1)(*raise (Failure ("Pos not supported yet " ))*)
 
 
 	| Call(fdecl, out_list, in_list ) ->
@@ -170,10 +170,10 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
 		let bus_from_var var = let (bus, _,_,_,_) = var in bus
 		(*using the field "size" in Barray(_,size,_) to identify which bus in the vector is assigned*)
 		in let actual_barray am bs =  function
-			  Num(i) -> let am = update_asn (Aasn(bs, i, Id("port map"), Id("port map"))) 0(*TODO use cc*) am
+			  Num(i) -> let am = update_asn (Aasn(bs, i, Id("port map"), Id("port map"))) cc am
 					in (string_of_int i), am
 			| Id(i) -> (try let bs_i = bus_from_var (find_variable genv.scope i)
-					in let am = update_asn (Aasn(bs, bs_i.init, Id("port map"), Id("port map"))) 0(*TODO use cc*) am
+					in let am = update_asn (Aasn(bs, bs_i.init, Id("port map"), Id("port map"))) cc am
 					in ("ieee.std_logic_unsigned.conv_integer(" ^ i ^ ")"), am
 			   	   with Error(_) -> raise (Failure("Function Call to " ^ fdecl.fid ^ ": actual "^ bs.name ^ " is not static"))  )
 			(*| Subbus(sbs, strt, stop) -> ( try let _ = find_variable genv.scope sbs.name
@@ -186,14 +186,14 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
  	    in
 	    let s1, asn_map = (match (List.hd l) with
 	     Id(i) -> let bs_i = bus_from_var (find_variable cloc.scope i)
-			in let am = update_asn (Basn(bs_i, Id("port map"))) 0(*TODO use cc*) am (*I don't care about the expr_detail in the assignment*)
+			in let am = update_asn (Basn(bs_i, Id("port map"))) cc am (*I don't care about the expr_detail in the assignment*)
 			in i, am
 	   | Barray(bs, _, e1) -> let v1,am = actual_barray am bs e1
 				in bs.name^"("^v1^")", am
 	   | Subbus(bs, strt, stop) -> let range = 
 		   if strt < stop then "(" ^ (string_of_int stop) ^ " downto " ^ (string_of_int strt) ^ ")" else
 			"(" ^ (string_of_int strt) ^ " downto " ^ (string_of_int stop) ^ ")"
-			in let am = update_asn (Subasn(bs, strt, stop, Id("port map"))) 0(*TODO use cc*) am
+			in let am = update_asn (Subasn(bs, strt, stop, Id("port map"))) cc am
 			in bs.name ^ range, am
 	   | x ->  raise (Failure ("Function Call to " ^ fdecl.fid ^ ": In/Output port mapping must use pre-existing variables " ))   ) 
 	   in  s^",\n\t\t"^b.name^" => " ^ s1 , (List.tl l) , asn_map   (* end of f *) 
@@ -211,17 +211,17 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
 	   	   
 	    in let s,_,_ = List.fold_left f (s,in_list,asn_map) fdecl.pin
 	    in let s,_,asn_map = List.fold_left f (s,out_list,asn_map) fdecl.pout 
-	    in ({sens_list=env.sens_list;}, s ^ ");\n",asn_map)
+	    in ({sens_list=env.sens_list;}, s ^ ");\n",asn_map,cc)
 
 
 	| x -> 	raise (Failure ("Statement not supported yet " )) )
-    and translate_case left (env,s,asn_map) (e,stmt) = 
+    and translate_case left (env,s,asn_map,cc) (e,stmt) = 
       ( match e with 
      (* SAST needs to check there is atmost one dafault and no duplicate 
      case expressions *) 
-          Noexpr->   translate_stmt (env,s ^ "\t\telse \n",asn_map) stmt   
-        | x     ->    let right,env,asn_map = eval e env asn_map 
-         in translate_stmt (env,s ^ "\t\telsif (" ^ left ^ " = " ^ right ^ ") then \n",asn_map ) stmt  
+          Noexpr->   translate_stmt (env,s ^ "\t\telse \n",asn_map,cc) stmt   
+        | x     ->    let right,env,asn_map = eval e env asn_map cc
+         in translate_stmt (env,s ^ "\t\telsif (" ^ left ^ " = " ^ right ^ ") then \n",asn_map,cc ) stmt  
          )
 (* end of translate_stmt *)          
          
@@ -234,17 +234,18 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
    
     in let body cobj asn_map=
     let empty_env = {sens_list=[];}
-		in let rec hsa l asn_map = function
-		   [] -> (List.rev l), asn_map
-		 | hd::tl -> let (ts_env, ts_str,new_asn_map) = (translate_stmt (empty_env,"",asn_map) hd)
+		in let rec hsa l asn_map cc= function
+		   [] -> (List.rev l), asn_map, cc
+		 | hd::tl -> let (ts_env, ts_str,new_asn_map, new_cc) = (translate_stmt (empty_env,"",asn_map,cc) hd)
 			      in let new_l = (ts_env,ts_str)::l
-				in hsa new_l new_asn_map tl
-		in let (stmt_attr, full_asn_map) = hsa [] asn_map cobj.fbod
+				in hsa new_l new_asn_map new_cc tl
+		in let (stmt_attr, full_asn_map, fc) = hsa [] asn_map 0 cobj.fbod
 (*un-comment the two lines below to print out the list of assigned variables*)
 	in let _ = print_endline ("function "^cname^":")
+	in let _ = print_endline ("final clock :"^(string_of_int fc))
 	in let _ = print_asn_map full_asn_map
 	in let s = List.fold_left print_process "" stmt_attr
-	in s
+	in s, fc
 
    in let arch cname cobj = (*arch *)
     (* Add input ports to assignment map *)
@@ -256,8 +257,8 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
 			in ha0 new_asn0 tl
 	   in ha0 Im.empty pin_asn
 
-(* body takes Function objetc, assignment map at clock 0*) 
-   in let behavior = body cobj asn_map
+(* body takes Function objetc, assignment map at clock 0 and returns the body string and the final clock*) 
+   in let behavior, fc = body cobj asn_map
 (* need to print out the locals before begin *)
 
     (* print out component list *) 

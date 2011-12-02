@@ -78,7 +78,7 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
 (* Evaluate expressions *) 
  in let rec eval e env asn_map cc= match e with
     Num(i) -> string_of_int i, env, asn_map 
-    | Id(i) -> (try let _ = (find_variable genv.scope i)
+    | Id(i) -> (try let _ = (find_variable genv.scope i) (*no constants in the sensitivity list!*)
 			in (i ^ "_r" ^ (string_of_int cc)), env, asn_map
 		with (Error(_)) -> (i ^ "_r" ^ (string_of_int cc)), {sens_list = (i^"_r"^string_of_int cc)::env.sens_list;}, asn_map )
     | Barray(bs, _, e1) -> let v1, env = match e1 with

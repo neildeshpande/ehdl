@@ -97,22 +97,22 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
     | Binop(e1,op,e2) -> 
      let v1, env, _ = eval e1 env asn_map cc in let v2, env, _ = eval e2 env asn_map cc
      in (match op with 
-	 Add  -> v1 ^ " + " ^ v2
-       | Sub  -> v1 ^ " - " ^ v2 
-       | Mul  -> v1 ^ " * " ^ v2  
-       | Div  -> v1 ^ " / " ^ v2   
-       | Mod  -> v1 ^ "  mod " ^ v2 
-       | Lt   -> v1 ^ " < " ^ v2
-       | Gt   -> v1 ^ " > " ^ v2
-       | Lte  -> v1 ^ " <= " ^ v2
-       | Gte  -> v1 ^ " >= " ^ v2
-       | Eq   -> v1 ^ " = " ^ v2
-       | Neq  -> v1 ^ " /= " ^ v2
-       | Or   -> v1 ^ " or " ^ v2
-       | And  -> v1 ^ " and " ^ v2
-       | Xor  -> v1 ^ " xor  " ^ v2
-       | Shl  -> v1 ^ " sll " ^ v2
-       | Shr  -> v1 ^ " srl " ^ v2 
+	 Add  -> "("^v1^")" ^ " + " ^ "("^v2^")"
+       | Sub  -> "("^v1^")" ^ " - " ^ "("^v2^")" 
+       | Mul  -> "("^v1^")" ^ " * " ^ "("^v2^")"  
+       | Div  -> "("^v1^")" ^ " / " ^ "("^v2^")"   
+       | Mod  -> "("^v1^")" ^ "  mod " ^ "("^v2^")" 
+       | Lt   -> "("^v1^")" ^ " < " ^ "("^v2^")"
+       | Gt   -> "("^v1^")" ^ " > " ^ "("^v2^")"
+       | Lte  -> "("^v1^")" ^ " <= " ^ "("^v2^")"
+       | Gte  -> "("^v1^")" ^ " >= " ^ "("^v2^")"
+       | Eq   -> "("^v1^")" ^ " = " ^ "("^v2^")"
+       | Neq  -> "("^v1^")" ^ " /= " ^ "("^v2^")"
+       | Or   -> "("^v1^")" ^ " or " ^ "("^v2^")"
+       | And  -> "("^v1^")" ^ " and " ^ "("^v2^")"
+       | Xor  -> "("^v1^")" ^ " xor  " ^ "("^v2^")"
+       | Shl  -> "("^v1^")" ^ " sll " ^ "("^v2^")"
+       | Shr  -> "("^v1^")" ^ " srl " ^ "("^v2^")" 
        | x    -> raise (Failure ("ERROR: Invalid Binary Operator ")) ), env, asn_map
    | Basn(i, e1) -> let asn_map = update_asn (Basn(i,Id(i.name))) cc asn_map
 		in let v1, env, _ = eval e1 env asn_map cc
@@ -168,7 +168,18 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
            in let env,if_block,asn_map,_ = translate_stmt (env,"",asn_map,cc) stmt
 		   in let env,s5,asn_map,_ = List.fold_left (translate_case s1) (env,"",asn_map,cc) tl 	
 		   in (env, (s3 ^ if_block ^ s5 ^ "\t\tend if;\n"),asn_map,cc ) )		      
-	| Pos(en) -> let sen, _ ,_ = eval en env asn_map cc
+	| Pos(en) -> let sen = ( match en with (*If boolean expression then ok, else add /= 0*)
+		         Binop(e1,op,e2) -> 
+     				let v1, env, _ = eval e1 env asn_map cc in let v2, env, _ = eval e2 env asn_map cc
+    				in (match op with 
+				  Lt   -> "("^v1^")" ^ " < " ^ "("^v2^")"
+				| Gt   -> "("^v1^")" ^ " > " ^ "("^v2^")"
+				| Lte  -> "("^v1^")" ^ " <= " ^ "("^v2^")"
+				| Gte  -> "("^v1^")" ^ " >= " ^ "("^v2^")"
+				| Eq   -> "("^v1^")" ^ " = " ^ "("^v2^")"
+				| Neq  -> "("^v1^")" ^ " /= " ^ "("^v2^")"
+       				| x    -> let s, _, _ = eval en env asn_map cc in s ^ " /= 0" )
+			| x -> let s, _, _ = eval x env asn_map cc in s ^ " /= 0" )
 		       in let (sync,async) = get_asn asn_map
 			in let print_ccp1 (ap) = (function
 			  Basn(x,_) -> ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ " <= " ^ x.name ^ "_r" ^ (string_of_int cc) ^ ";\n"
@@ -205,7 +216,7 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
 			in let seqp = "process(clk,rst)\nbegin\nif rst = '0' then\n"
 			in let posedge = "elsif clk'event and clk = '1' then\n"
 			in let sen = "if " ^ sen ^ " then\n"
-			in let endp = "end if;\nend if;\nend process;"
+			in let endp = "end if;\nend if;\nend process;\n"
 			in env,(nr^seqp^reset^posedge^sen^yr^endp),asn_map,(cc+1)
 
 	| Call(fdecl, out_list, in_list ) ->
@@ -346,7 +357,7 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
 	 in let c_sgnls = List.fold_left print_signals "" const_list
 	 in let b_sgnls = List.fold_left print_signals "" bus_list
 	 in let sgnls = c_sgnls^b_sgnls
-
+	
 	in let print_inasn ss ibus = ss ^ ibus.name ^ "_r0 <= " ^ ibus.name ^ ";\n"
 	in let print_outasn ss obus = ss ^ obus.name ^ " <= " ^ obus.name ^ "_r" ^ (string_of_int fc) ^ ";\n"
 	in let inasn = List.fold_left print_inasn "" (cobj.pin)

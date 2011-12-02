@@ -14,7 +14,7 @@ int(32) c adder(int(32) a, int(32) b) {
 	//ar[2] = 4;
 
 	(c) = adder(e,f);
-	POS(1 == 1); 
+	POS(1); 
 	(d) = adder(f,e(0:31)); 
 	
 	g = e(0:7);

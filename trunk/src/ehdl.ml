@@ -168,7 +168,8 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
            in let env,if_block,asn_map,_ = translate_stmt (env,"",asn_map,cc) stmt
 		   in let env,s5,asn_map,_ = List.fold_left (translate_case s1) (env,"",asn_map,cc) tl 	
 		   in (env, (s3 ^ if_block ^ s5 ^ "\t\tend if;\n"),asn_map,cc ) )		      
-	| Pos(s2) -> let (sync,async) = get_asn asn_map
+	| Pos(en) -> let sen, _ ,_ = eval en env asn_map cc
+		       in let (sync,async) = get_asn asn_map
 			in let print_ccp1 (ap) = (function
 			  Basn(x,_) -> ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ " <= " ^ x.name ^ "_r" ^ (string_of_int cc) ^ ";\n"
 			| Aasn(x,i,e1,_) -> (match e1 with (*Either e1 is a constant or the whole array is assigned!*)
@@ -203,9 +204,9 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
 			in let yr = List.fold_left print_ccp1 ("") sync
 			in let seqp = "process(clk,rst)\nbegin\nif rst = '0' then\n"
 			in let posedge = "elsif clk'event and clk = '1' then\n"
-			(****TODO add enable to POS****)
-			in let endp = "end if;\nend process;"
-			in env,(nr^seqp^reset^posedge^yr^endp),asn_map,(cc+1)
+			in let sen = "if " ^ sen ^ " then\n"
+			in let endp = "end if;\nend if;\nend process;"
+			in env,(nr^seqp^reset^posedge^sen^yr^endp),asn_map,(cc+1)
 
 	| Call(fdecl, out_list, in_list ) ->
 	   (* start of f *) 

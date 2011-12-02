@@ -176,12 +176,6 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
 					in let am = update_asn (Aasn(bs, bs_i.init, Id("port map"), Id("port map"))) cc am
 					in ("ieee.std_logic_unsigned.conv_integer(" ^ i ^ ")"), am
 			   	   with Error(_) -> raise (Failure("Function Call to " ^ fdecl.fid ^ ": actual "^ bs.name ^ " is not static"))  )
-			(*| Subbus(sbs, strt, stop) -> ( try let _ = find_variable genv.scope sbs.name
-								in let range = 
-		  						  if strt < stop then "(" ^ (string_of_int stop) ^ " downto " ^ (string_of_int strt) ^ ")" else
-										      "(" ^ (string_of_int strt) ^ " downto " ^ (string_of_int stop) ^ ")"
-								in ("ieee.std_logic_unsigned.conv_integer(" ^ sbs.name ^ range ^ ")")
-						    	    with Error(_) -> raise (Failure("Function Call to " ^ fdecl.fid ^ ": actual "^ bs.name ^ " is not static"))	)*)
     			| x -> raise (Failure("Function Call to " ^ fdecl.fid ^ ": illegal actual assignment"))
  	    in
 	    let s1, asn_map = (match (List.hd l) with
@@ -201,12 +195,16 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
 	   (* When a function uses the same component multiple times, it needs to use unique labels to describe the 
 	   separate instantiations. One way to do this is to append a string that is a function of the head of the 
 	   output_list. The output_list is guranteed to be non-empty, SAST should also gurantee that the same output 
-	   variable does not get used in two different calls as outputs. *) 
-	   in let label = (match (List.hd out_list) with
+	   variable does not get used in two different calls as outputs. *)
+	   in let array_label = function
+		Num(i) -> string_of_int i
+	      | Id(i)  -> i
+	      | x -> raise (Failure("Function Call to " ^ fdecl.fid ^ ": illegal actual assignment"))
+	   in let label = match (List.hd out_list) with
 	      Id(i) -> i 
-	    | Barray(bs, idx, _) ->  bs.name (*TODO*)  
+	    | Barray(bs, _, e1) ->  (bs.name) ^ (array_label e1)
 	    | Subbus(bs, strt, stop) -> bs.name ^ "_" ^ (string_of_int strt) ^ "_" ^ (string_of_int stop)
-	    | x->  raise (Failure ("In/Output port mapping must use pre-existing variables " )) ) 
+	    | x->  raise (Failure ("In/Output port mapping must use pre-existing variables " ))
 	   in  let s = str ^ fdecl.fid ^ "_" ^ label ^ " : " ^ fdecl.fid ^ " port map (\n\t\tclk => clk,\n \t\trst => rst" 
 	   	   
 	    in let s,_,_ = List.fold_left f (s,in_list,asn_map) fdecl.pin
@@ -268,7 +266,44 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
 		"\tclk : in std_logic;\n\trst : in std_logic;\n" ^ s1 ^ ");\nend component;\n\n" 
 	(* if same component is used twice, we just print them once, hence the call to uniq_calls *) 	 
     in let cl_s = List.fold_left comp_decl "" (uniq_calls cobj.fcalls)
-    in let sgnls = "" (*TODO*)
+
+
+	in let rec print_bus bs ss = function
+	   0 -> "signal " ^ bs.name ^ "_r0" ^ ss ^ " : std_logic_vector(" ^ (string_of_int (bs.size-1))
+	   	^ " downto 0) := ieee.std_logic_arith.conv_std_logic_vector(" ^ string_of_int (bs.init)
+	   	^ "," ^ string_of_int (bs.size) ^ ");\n"
+	 | x -> print_bus bs (ss ^ ", " ^ bs.name ^ "_r" ^ string_of_int x) (x-1)
+	in let rec print_const bs ss = function
+	   0 -> "constant " ^ bs.name ^ "_r0" ^ ss ^ " : std_logic_vector(" ^ (string_of_int (bs.size-1))
+	   	^ " downto 0) := ieee.std_logic_arith.conv_std_logic_vector(" ^ string_of_int (bs.init)
+	   	^ "," ^ string_of_int (bs.size) ^ ");\n"
+	 | x -> print_const bs (ss ^ ", " ^ bs.name ^ "_r" ^ string_of_int x) (x-1)
+	in let rec print_array bs ss = function
+	   0 -> "signal " ^ bs.name ^ "_r0" ^ ss ^ " : " ^ bs.name
+		^ "_type := (others => ieee.std_logic_arith.conv_std_logic_vector("
+		^ string_of_int (bs.init) ^ "," ^ string_of_int (bs.size) ^ "));\n"
+	 | x -> print_array bs (ss ^ ", " ^ bs.name ^ "_r" ^ string_of_int x) (x-1)
+
+	in let print_signals ss var =
+	  let (bs, sz, tp, _, _) = var
+	  in let ps = (match tp with
+	     Bus -> ss ^ (print_bus bs "" fc)
+	   | Const -> ss ^ (print_const bs "" fc)
+		(*!!PREVENT THE USER TO CALL AN ARRAY <ID>_TYPE. Maybe we want to remove '_' from ID regular expression*)
+	   | Array -> let s_type = ss ^ "type " ^ bs.name ^ "_type is array (0 to " ^ string_of_int (sz-1) ^ ") of std_logic_vector("
+		         ^ string_of_int (bs.size-1) ^ " downto 0);\n"
+			in ss ^ s_type ^ (print_array bs "" fc)
+	   | x -> raise (Failure("There's something wrong with the type symbol table!"))
+		)
+		in ps
+	
+	in let const_list = (genv.scope).variables
+	in let bus_list = ((cobj.floc).scope).variables
+	 in let c_sgnls = List.fold_left print_signals "" const_list
+	 in let b_sgnls = List.fold_left print_signals "" bus_list
+	 in let sgnls = c_sgnls^b_sgnls
+
+
     in "architecture e_" ^ cname ^ " of  " ^ cname ^ " is \n\n" ^ cl_s ^"\n\n"^ sgnls ^"\n\nbegin\n"
       ^ behavior
       ^ "\n\nend e_" ^ cname ^ ";\n\n"

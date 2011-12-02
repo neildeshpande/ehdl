@@ -1,5 +1,4 @@
-const uint(1) en = 1;
-
+const uint(2) en = 2;
 int(32) c adder(int(32) a, int(32) b) { 
 	
 	c = a + b;  // perform check that c has the same type as return value
@@ -10,7 +9,11 @@ int(32) c adder(int(32) a, int(32) b) {
 	int(32) ar[3] = 1;
 	(ar[0]) = adder(e,f);
 	(ar[en]) = adder(ar[0],f);
-	ar[2] = 2;
+	
+	if ( en(0:0) || e(0:0) ) {	
+	ar[2] = 2; }
+	else {
+	ar[2] = 1; }
 	//ar[2] = 4;
 
 	(c) = adder(e,f);

@@ -78,41 +78,45 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
 (* Evaluate expressions *) 
  in let rec eval e env asn_map cc= match e with
     Num(i) -> string_of_int i, env, asn_map 
-    | Id(i) -> (i ^ "_r" ^ (string_of_int cc)), {sens_list = i::env.sens_list;}, asn_map (* the list is keeping track of variables for the sensitivity list*)
+    | Id(i) -> (try let _ = (find_variable genv.scope i)
+			in (i ^ "_r" ^ (string_of_int cc)), env, asn_map
+		with (Error(_)) -> (i ^ "_r" ^ (string_of_int cc)), {sens_list = (i^"_r"^string_of_int cc)::env.sens_list;}, asn_map )
     | Barray(bs, _, e1) -> let v1, env = match e1 with
       			  Num(i) -> (string_of_int i), env
     			| x -> let i, env, _ = eval x env asn_map cc(*TODO: This does not handle for loop index!*)
 				in ("ieee.std_logic_unsigned.conv_integer(" ^ i ^ ")"), env
-		in (bs.name^"_r"^(string_of_int cc)) ^ "(" ^ v1 ^ ")", {sens_list = bs.name::env.sens_list;}, asn_map 
+		in (bs.name^"_r"^(string_of_int cc)) ^ "(" ^ v1 ^ ")", {sens_list = (bs.name^"_r"^string_of_int cc)::env.sens_list;}, asn_map 
 		(* Using "a" rather than "a(i)" in the sensitivity list, which is fine, because the list must be static *)  
     | Subbus(bs, strt, stop) -> let range = 
 		   if strt < stop then "(" ^ (string_of_int stop) ^ " downto " ^ (string_of_int strt) ^ ")" else
 			"(" ^ (string_of_int strt) ^ " downto " ^ (string_of_int stop) ^ ")"
-		in (bs.name ^ "_r" ^ (string_of_int cc)) ^ range, {sens_list =  bs.name::env.sens_list;}, asn_map
+		in (try let _ = (find_variable genv.scope bs.name) 
+			in (bs.name ^ "_r" ^ (string_of_int cc)) ^ range, env, asn_map
+		    with (Error(_)) -> (bs.name ^ "_r" ^ (string_of_int cc)) ^ range, {sens_list =  (bs.name^"_r"^string_of_int cc)::env.sens_list;}, asn_map )
     | Unop(op,e1) -> let v1, env, _ = eval e1 env asn_map cc in 
     ( match op with 
-      Umin -> "- " ^ v1  
-    | Not -> "not " ^ v1
+      Umin -> "(- " ^ v1 ^ ")"
+    | Not -> "(not " ^ v1 ^ ")"
     | x -> raise (Failure ("ERROR: Invalid Unary Operator ")) ), env, asn_map 
     | Binop(e1,op,e2) -> 
      let v1, env, _ = eval e1 env asn_map cc in let v2, env, _ = eval e2 env asn_map cc
      in (match op with 
-	 Add  -> "("^v1^")" ^ " + " ^ "("^v2^")"
-       | Sub  -> "("^v1^")" ^ " - " ^ "("^v2^")" 
-       | Mul  -> "("^v1^")" ^ " * " ^ "("^v2^")"  
-       | Div  -> "("^v1^")" ^ " / " ^ "("^v2^")"   
-       | Mod  -> "("^v1^")" ^ "  mod " ^ "("^v2^")" 
-       | Lt   -> "("^v1^")" ^ " < " ^ "("^v2^")"
-       | Gt   -> "("^v1^")" ^ " > " ^ "("^v2^")"
-       | Lte  -> "("^v1^")" ^ " <= " ^ "("^v2^")"
-       | Gte  -> "("^v1^")" ^ " >= " ^ "("^v2^")"
-       | Eq   -> "("^v1^")" ^ " = " ^ "("^v2^")"
-       | Neq  -> "("^v1^")" ^ " /= " ^ "("^v2^")"
-       | Or   -> "("^v1^")" ^ " or " ^ "("^v2^")"
-       | And  -> "("^v1^")" ^ " and " ^ "("^v2^")"
-       | Xor  -> "("^v1^")" ^ " xor  " ^ "("^v2^")"
-       | Shl  -> "("^v1^")" ^ " sll " ^ "("^v2^")"
-       | Shr  -> "("^v1^")" ^ " srl " ^ "("^v2^")" 
+	 Add  -> "(("^v1^")" ^ " + " ^ "("^v2^"))"
+       | Sub  -> "(("^v1^")" ^ " - " ^ "("^v2^"))" 
+       | Mul  -> "(("^v1^")" ^ " * " ^ "("^v2^"))"  
+       | Div  -> "(("^v1^")" ^ " / " ^ "("^v2^"))"   
+       | Mod  -> "(("^v1^")" ^ "  mod " ^ "("^v2^"))" 
+       | Lt   -> "(("^v1^")" ^ " < " ^ "("^v2^"))"
+       | Gt   -> "(("^v1^")" ^ " > " ^ "("^v2^"))"
+       | Lte  -> "(("^v1^")" ^ " <= " ^ "("^v2^"))"
+       | Gte  -> "(("^v1^")" ^ " >= " ^ "("^v2^"))"
+       | Eq   -> "(("^v1^")" ^ " = " ^ "("^v2^"))"
+       | Neq  -> "(("^v1^")" ^ " /= " ^ "("^v2^"))"
+       | Or   -> "(("^v1^")" ^ " or " ^ "("^v2^"))"
+       | And  -> "(("^v1^")" ^ " and " ^ "("^v2^"))"
+       | Xor  -> "(("^v1^")" ^ " xor  " ^ "("^v2^"))"
+       | Shl  -> "(("^v1^")" ^ " sll " ^ "("^v2^"))"
+       | Shr  -> "(("^v1^")" ^ " srl " ^ "("^v2^"))" 
        | x    -> raise (Failure ("ERROR: Invalid Binary Operator ")) ), env, asn_map
    | Basn(i, e1) -> let asn_map = update_asn (Basn(i,Id(i.name))) cc asn_map
 		in let v1, env, _ = eval e1 env asn_map cc
@@ -150,7 +154,18 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
 	| Expr(ex) -> let (e, ex_t, ex_s) = ex
 	    in let s,env,asn_map = eval e env asn_map cc in (env, (str ^ s), asn_map, cc)   
 	| If(e,if_stmt,else_stmt) -> 
-	    let s,env,_ = eval e env asn_map cc(*In this case asn_map won't change: no assignments in if condition*)
+		let s,env = ( match e with (*If boolean expression then ok, else add /= 0*)
+		         Binop(e1,op,e2) -> 
+     				let v1, env, _ = eval e1 env asn_map cc in let v2, env, _ = eval e2 env asn_map cc
+    				in (match op with 
+				  Lt   -> "(("^v1^")" ^ " < " ^ "("^v2^"))", env
+				| Gt   -> "(("^v1^")" ^ " > " ^ "("^v2^"))", env
+				| Lte  -> "(("^v1^")" ^ " <= " ^ "("^v2^"))", env
+				| Gte  -> "(("^v1^")" ^ " >= " ^ "("^v2^"))", env
+				| Eq   -> "(("^v1^")" ^ " = " ^ "("^v2^"))", env
+				| Neq  -> "(("^v1^")" ^ " /= " ^ "("^v2^"))", env
+       				| x    -> let s, env, _ = eval e env asn_map cc in s ^ " /= 0", env )
+			| x -> let s, env, _ = eval x env asn_map cc in s ^ " /= 0", env )
 	    in let env,if_block,asn_map,_ = translate_stmt (env,"",asn_map,cc) if_stmt
 	    in let env,else_block,asn_map,_ = translate_stmt (env,"",asn_map,cc) else_stmt
 	    in (env, ("\t\tif (" ^ s ^ ") then \n" ^ if_block 
@@ -170,14 +185,14 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
 		   in (env, (s3 ^ if_block ^ s5 ^ "\t\tend if;\n"),asn_map,cc ) )		      
 	| Pos(en) -> let sen = ( match en with (*If boolean expression then ok, else add /= 0*)
 		         Binop(e1,op,e2) -> 
-     				let v1, env, _ = eval e1 env asn_map cc in let v2, env, _ = eval e2 env asn_map cc
+     				let v1, _, _ = eval e1 env asn_map cc in let v2, env, _ = eval e2 env asn_map cc
     				in (match op with 
-				  Lt   -> "("^v1^")" ^ " < " ^ "("^v2^")"
-				| Gt   -> "("^v1^")" ^ " > " ^ "("^v2^")"
-				| Lte  -> "("^v1^")" ^ " <= " ^ "("^v2^")"
-				| Gte  -> "("^v1^")" ^ " >= " ^ "("^v2^")"
-				| Eq   -> "("^v1^")" ^ " = " ^ "("^v2^")"
-				| Neq  -> "("^v1^")" ^ " /= " ^ "("^v2^")"
+				  Lt   -> "(("^v1^")" ^ " < " ^ "("^v2^"))"
+				| Gt   -> "(("^v1^")" ^ " > " ^ "("^v2^"))"
+				| Lte  -> "(("^v1^")" ^ " <= " ^ "("^v2^"))"
+				| Gte  -> "(("^v1^")" ^ " >= " ^ "("^v2^"))"
+				| Eq   -> "(("^v1^")" ^ " = " ^ "("^v2^"))"
+				| Neq  -> "(("^v1^")" ^ " /= " ^ "("^v2^"))"
        				| x    -> let s, _, _ = eval en env asn_map cc in s ^ " /= 0" )
 			| x -> let s, _, _ = eval x env asn_map cc in s ^ " /= 0" )
 		       in let (sync,async) = get_asn asn_map
@@ -216,7 +231,7 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
 			in let seqp = "process(clk,rst)\nbegin\nif rst = '0' then\n"
 			in let posedge = "elsif clk'event and clk = '1' then\n"
 			in let sen = "if " ^ sen ^ " then\n"
-			in let endp = "end if;\nend if;\nend process;\n"
+			in let endp = "end if;\nend if;\nend process;\n\n"
 			in env,(nr^seqp^reset^posedge^sen^yr^endp),asn_map,(cc+1)
 
 	| Call(fdecl, out_list, in_list ) ->
@@ -264,7 +279,7 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
 	   	   
 	    in let s,_,_ = List.fold_left f (s,in_list,asn_map) fdecl.pin
 	    in let s,_,asn_map = List.fold_left f (s,out_list,asn_map) fdecl.pout 
-	    in ({sens_list=env.sens_list;}, s ^ ");\n",asn_map,cc)
+	    in ({sens_list=env.sens_list;}, s ^ ");\n\n",asn_map,cc)
 
 
 	| x -> 	raise (Failure ("Statement not supported yet " )) )
@@ -283,7 +298,7 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
      let l = uniq env.sens_list in 
      ( match l with   [] -> prev ^ s (* Don't make this a process if nothing in the sensitivity list, affects Call() and consts *)  
                     | x  -> let ss = delim_sprt ", " l
-	                in prev ^ "\n\tprocess (" ^ ss ^ ")\n\tbegin\n" ^ s ^ "\n\tend process;\n" )	  
+	                in prev ^ "\n\tprocess (" ^ ss ^ ")\n\tbegin\n" ^ s ^ "\n\tend process;\n\n" )	  
    
     in let body cobj asn_map=
     let empty_env = {sens_list=[];}

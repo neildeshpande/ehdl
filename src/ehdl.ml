@@ -168,23 +168,44 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
            in let env,if_block,asn_map,_ = translate_stmt (env,"",asn_map,cc) stmt
 		   in let env,s5,asn_map,_ = List.fold_left (translate_case s1) (env,"",asn_map,cc) tl 	
 		   in (env, (s3 ^ if_block ^ s5 ^ "\t\tend if;\n"),asn_map,cc ) )		      
-	| Pos(s2) -> (*let (sync,async) = get_asn asn_map
-
-			in let print_ccp1 (cc,ap) = (function
-			  Basn(x,_) -> ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ " <= " x.name ^ "_r" ^ (string_of_int cc) ^ ";\n"
-			| Aasn(x,sz,e1,_) -> (match e1 with
-						
-
-									)
-			| Subasn(x,start,stop,_) -> let range = 
+	| Pos(s2) -> let (sync,async) = get_asn asn_map
+			in let print_ccp1 (ap) = (function
+			  Basn(x,_) -> ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ " <= " ^ x.name ^ "_r" ^ (string_of_int cc) ^ ";\n"
+			| Aasn(x,i,e1,_) -> (match e1 with (*Either e1 is a constant or the whole array is assigned!*)
+						Id("constant") -> ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ "("
+								  ^ string_of_int i ^ ")" ^ " <= " ^ x.name ^ "_r"
+								  ^ (string_of_int cc) ^ "(" ^ string_of_int i ^ ")" ^ ";\n"
+						| e -> ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ " <= " ^ x.name ^ "_r"
+						          ^ (string_of_int cc) ^ ";\n"		)
+			| Subasn(x,strt,stop,_) -> let range = 
 		  			 if strt < stop then "(" ^ (string_of_int stop) ^ " downto " ^ (string_of_int strt) ^ ")" else
 							     "(" ^ (string_of_int strt) ^ " downto " ^ (string_of_int stop) ^ ")"
-				ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ range ^ " <= " x.name ^ "_r" ^ (string_of_int cc) ^ range ^ ";\n"
+				in ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ range ^ " <= " ^ x.name ^ "_r" ^ (string_of_int cc) ^ range ^ ";\n"
+			| x -> raise (Error("not an assignment"))	)
+			in let print_reset (ap) = (function
+			  Basn(x,_) -> ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ " <= ieee.std_logic_arith.conv_std_logic_vector("
+					  ^ string_of_int (x.init) ^ "," ^ string_of_int (x.size) ^ ");\n"
+			| Aasn(x,i,e1,_) -> (match e1 with (*Either e1 is a constant or the whole array is assigned!*)
+						Id("constant") -> ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ "("
+								  ^ string_of_int i ^ ")" ^ " <= ieee.std_logic_arith.conv_std_logic_vector("
+					  			  ^ string_of_int (x.init) ^ "," ^ string_of_int (x.size) ^ ");\n"
+						| e -> ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ " <= (others => ieee.std_logic_arith.conv_std_logic_vector("
+					  			  ^ string_of_int (x.init) ^ "," ^ string_of_int (x.size) ^ "));\n"		)
+			| Subasn(x,strt,stop,_) -> let range = 
+		  			 if strt < stop then "(" ^ (string_of_int stop) ^ " downto " ^ (string_of_int strt) ^ ")" else
+							     "(" ^ (string_of_int strt) ^ " downto " ^ (string_of_int stop) ^ ")"
+				in ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ range ^ " <= ieee.std_logic_arith.conv_std_logic_vector("
+					  ^ string_of_int (x.init) ^ "," ^ string_of_int (x.size) ^ ");\n"
 			| x -> raise (Error("not an assignment"))	)
 			
-			in let nr = List.fold_left print_ccp1 (cc, "--Pos--\n") async
-			
-			in *)env,"",asn_map,(cc+1)
+			in let nr = List.fold_left print_ccp1 ("--Pos--\n") async
+			in let reset = List.fold_left print_reset ("") sync
+			in let yr = List.fold_left print_ccp1 ("") sync
+			in let seqp = "process(clk,rst)\nbegin\nif rst = '0' then\n"
+			in let posedge = "elsif clk'event and clk = '1' then\n"
+			(****TODO add enable to POS****)
+			in let endp = "end if;\nend process;"
+			in env,(nr^seqp^reset^posedge^yr^endp),asn_map,(cc+1)
 
 	| Call(fdecl, out_list, in_list ) ->
 	   (* start of f *) 

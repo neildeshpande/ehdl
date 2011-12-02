@@ -9,12 +9,12 @@ int(32) c adder(int(32) a, int(32) b) {
 (int(32) c, int(32) d, int(8) g) main(int(32) e, int(32) f) {
 	int(32) ar[2] = 1;
 	(ar[0]) = adder(e,f);
-	(ar[en]) = adder(e,f);
+	(ar[en]) = adder(ar[0],f);
 	
 	(c) = adder(e,f); 
 	(d) = adder(f,e(0:31)); 
-	POS(1);
-	POS(en);
+	//POS(1);
+	//POS(en);
 	g = e(0:7);
 	
 }

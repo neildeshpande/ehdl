@@ -126,8 +126,15 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
 			"(" ^ (string_of_int strt) ^ " downto " ^ (string_of_int stop) ^ ")"
 		in ("\t\t" ^ i.name ^ "_r" ^ (string_of_int cc) ^ range ^ " <= " ^ slv_v1 ^ ";\n" ) , env, asn_map
    | Aasn(bs,sz,e1,e2) -> let v1, env, asn_map = match e1 with
-      			  Num(i) -> let am = update_asn (Aasn(bs,sz,e1,Id(bs.name))) cc asn_map
+      			  Num(i) -> let am = update_asn (Aasn(bs,i,Id("constant"),Id("constant"))) cc asn_map
 					in (string_of_int i), env, am
+			| Id(i) -> let bus_from_var var = let (bus, _,_,_,_) = var in bus
+				   in (try let bs_i = bus_from_var (find_variable genv.scope i)
+					in let am = update_asn (Aasn(bs, bs_i.init, Id("constant"), Id("constant"))) cc asn_map
+					in ("ieee.std_logic_unsigned.conv_integer(" ^ i ^ "_r" ^ string_of_int cc ^ ")"), env, am
+				    with Error(_) ->  let am = update_asn (Aasn(bs,sz,e1,Id(bs.name))) cc asn_map
+							in let i, env, _ = eval e1 env am cc(*TODO: This does not handle for loop index!*)
+							in ("ieee.std_logic_unsigned.conv_integer(" ^ i ^ ")"), env, am )
     			| x -> let am = update_asn (Aasn(bs,sz,x,Id(bs.name))) cc asn_map
 				in let i, env, _ = eval x env am cc(*TODO: This does not handle for loop index!*)
 				in ("ieee.std_logic_unsigned.conv_integer(" ^ i ^ ")"), env, am
@@ -161,8 +168,23 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
            in let env,if_block,asn_map,_ = translate_stmt (env,"",asn_map,cc) stmt
 		   in let env,s5,asn_map,_ = List.fold_left (translate_case s1) (env,"",asn_map,cc) tl 	
 		   in (env, (s3 ^ if_block ^ s5 ^ "\t\tend if;\n"),asn_map,cc ) )		      
-	| Pos(s2) -> env,"",asn_map,(cc+1)(*raise (Failure ("Pos not supported yet " ))*)
+	| Pos(s2) -> (*let (sync,async) = get_asn asn_map
 
+			in let print_ccp1 (cc,ap) = (function
+			  Basn(x,_) -> ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ " <= " x.name ^ "_r" ^ (string_of_int cc) ^ ";\n"
+			| Aasn(x,sz,e1,_) -> (match e1 with
+						
+
+									)
+			| Subasn(x,start,stop,_) -> let range = 
+		  			 if strt < stop then "(" ^ (string_of_int stop) ^ " downto " ^ (string_of_int strt) ^ ")" else
+							     "(" ^ (string_of_int strt) ^ " downto " ^ (string_of_int stop) ^ ")"
+				ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ range ^ " <= " x.name ^ "_r" ^ (string_of_int cc) ^ range ^ ";\n"
+			| x -> raise (Error("not an assignment"))	)
+			
+			in let nr = List.fold_left print_ccp1 (cc, "--Pos--\n") async
+			
+			in *)env,"",asn_map,(cc+1)
 
 	| Call(fdecl, out_list, in_list ) ->
 	   (* start of f *) 
@@ -170,10 +192,10 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
 		let bus_from_var var = let (bus, _,_,_,_) = var in bus
 		(*using the field "size" in Barray(_,size,_) to identify which bus in the vector is assigned*)
 		in let actual_barray am bs =  function
-			  Num(i) -> let am = update_asn (Aasn(bs, i, Id("port map"), Id("port map"))) cc am
+			  Num(i) -> let am = update_asn (Aasn(bs, i, Id("constant"), Id("constant"))) cc am
 					in (string_of_int i), am
 			| Id(i) -> (try let bs_i = bus_from_var (find_variable genv.scope i)
-					in let am = update_asn (Aasn(bs, bs_i.init, Id("port map"), Id("port map"))) cc am
+					in let am = update_asn (Aasn(bs, bs_i.init, Id("constant"), Id("constant"))) cc am
 					in ("ieee.std_logic_unsigned.conv_integer(" ^ i ^ "_r" ^ (string_of_int cc) ^ ")"), am
 			   	   with Error(_) -> raise (Failure("Function Call to " ^ fdecl.fid ^ ": actual "^ bs.name ^ " is not static"))  )
     			| x -> raise (Failure("Function Call to " ^ fdecl.fid ^ ": illegal actual assignment"))

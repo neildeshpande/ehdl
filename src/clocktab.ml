@@ -74,7 +74,7 @@ let get_nc_asn map1 map2 =
 	   if Im.mem asn map2 then l else
 	   let _, tmp_asn_l = Im.fold get_asn_to_vname map2 (vname,[])
 	   in let nca ncal = function
-		  [] -> ncal
+		  [] -> asn::ncal
 		| hd::tl -> (match hd with
 				  Basn(x,e1) -> ncal (*if bus -> single assignment!*)
 				(*| Aasn(x,sz,e1,e2) ->*)

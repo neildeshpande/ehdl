@@ -1,0 +1,11 @@
+int(8) c main(int(8) a, int(8) b){
+
+while (a != b) {
+	if (a > b) 
+		a = a - b;
+	else
+		b = b - a;
+	POS(1);
+}
+	
+}

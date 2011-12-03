@@ -298,12 +298,12 @@ in let wstr, str1, str2, asn_map, prev_asn_map, curr_cc = build_while "" "" "" I
 
 in let (psync,_) = get_asn prev_asn_map
 in let (sync,_) = get_asn asn_map
-	in let tmp_ans_map =
+	in let tmp_asn_map =
 		let up pam asn = update_asn asn pam
 		in List.fold_left up curr_asn_map psync
 	in let curr_asn_map = 
 		let up pam asn = update_asn asn pam
-		in List.fold_left up tmp_ans_map sync
+		in List.fold_left up tmp_asn_map sync
 in {sens_list=[]},wstr,curr_asn_map,curr_cc
 
 (***************End of while loop processing******************)
@@ -423,9 +423,9 @@ in {sens_list=[]},wstr,curr_asn_map,curr_cc
 			     			 in (List.fold_left inc_fc cc sl), sl
 			   		| _ -> raise (Error("While statement requires a block containing at least one POS and another statement")))
 			in let rsl = List.rev sl
-			in let rsl = match List.hd rsl with
-					  Pos(en) -> rsl
-					| _ -> (Pos(Num(1)))::rsl
+			in let rsl, curr_fc = match List.hd rsl with
+					  Pos(en) -> rsl, curr_fc
+					| _ -> (print_endline "Warning: inferred Pos(1) at the end of the while loop"); (Pos(Num(1)))::rsl, curr_fc+1
 			in let sl = List.rev rsl
 			in translate_while e1 sl asn_map cc (curr_fc-1)
 	| Pos(en) -> let sen = ( match en with (*If boolean expression then ok, else add /= 0*)
@@ -553,10 +553,10 @@ in {sens_list=[]},wstr,curr_asn_map,curr_cc
 			      in let new_l = (ts_env,ts_str)::l
 				in hsa new_l new_asn_map new_cc tl
 		in let (stmt_attr, full_asn_map, fc) = hsa [] asn_map 0 cobj.fbod
-(*un-comment the two lines below to print out the list of assigned variables*)
-	in let _ = print_endline ("function "^cname^":")
+(*un-comment the three lines below to print out the list of assigned variables*)
+	(*in let _ = print_endline ("function "^cname^":")
 	in let _ = print_endline ("final clock :"^(string_of_int fc))
-	in let _ = print_asn_map full_asn_map
+	in let _ = print_asn_map full_asn_map*)
 	in let s = List.fold_left print_process "" stmt_attr
 	in s, fc
 

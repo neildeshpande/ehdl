@@ -212,8 +212,8 @@ let rec chk_stmt function_table env = function
 	  | hd::tl -> let new_l = ( run_chk_stmt env hd )::l
 		in stmt_helper new_l tl
 	in stmt_helper [] slist
-(* Uncomment to check if Blocks are parsed *)
-	in let _ = print_endline "parsed a Block"
+(* Un-comment to check if Blocks are parsed *)
+	(*in let _ = print_endline "parsed a Block"*)
 	in Block(new_stmt_list)
   | Ast.Switch(e, caselist) ->
     	let e, t1, _ = chk_expr function_table env e
@@ -227,8 +227,8 @@ let rec chk_stmt function_table env = function
 	 | hd::tl -> let new_l = (chk_case_list env hd) :: l
 			in clist_helper new_l tl
 	in let clist = clist_helper [] caselist	
-(* Uncomment to check if Switch is parsed *)
-	in let _ = print_endline "parsed a Switch"
+(* Un-comment to check if Switch is parsed *)
+	(*in let _ = print_endline "parsed a Switch"*)
 	in Switch(e, clist)
 	
    | Ast.Call(fname, out_list, in_list ) ->	
@@ -240,8 +240,8 @@ let rec chk_stmt function_table env = function
     ( fun l x -> let e1, _, _ =  chk_expr function_table env x in e1::l ) [] in_list 
     in let outlist = List.fold_left 
     ( fun l x -> let e1, _, _ =  chk_expr function_table env x in e1::l ) [] out_list
-(* Uncomment to check if Function Call is parsed *)
-	in let _ = print_endline "Function Call parsed"
+(* Un-comment to check if Function Call is parsed *)
+	(*in let _ = print_endline "Function Call parsed"*)
 	in Call(func_decl, outlist, inlist)
 
 
@@ -297,7 +297,7 @@ let func (env : translation_environment) (astfn : Ast.fdecl) tmp_ftable =
 			    fcalls = chk_calls; 
 			    fbod = chk_fbod; }           
         in let new_ftable = StringMap.add astfn.fname fobj tmp_ftable
-(* Uncomment to check if functions are added to the Function Table*)
+(* Un-comment to check if functions are added to the Function Table*)
 	in let _ = print_endline ("Added "^astfn.fname)
 	  in new_ftable
 

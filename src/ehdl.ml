@@ -10,16 +10,7 @@ end)
 
 type s_env = {
     sens_list : string list;  
-           } (* can add more stuff to this, list of locals for example, so POS can update it *) 
-
-
-(* insert non-duplicates *) 
-let rec insert_uniq l name =
-	try let _ = List.find ( fun ( s ) -> s = name ) l in l  
-	with Not_found-> name::l
-(* returns a list whose vals are unique *) 	
-let uniq lst = 
-    List.fold_left (fun l s -> insert_uniq l s) [] lst    	
+           } (* can add more stuff to this, list of locals for example, so POS can update it *)     	
     
     
 (* insert non-duplicate fcalls, should really do operator overloading and use a generic uniq function *) 
@@ -118,13 +109,13 @@ in let translate_while (wcond : Sast.expr_detail) (wblock : Sast.s_stmt list) cu
        | Shl  -> "(("^v11^")" ^ " sll " ^ "("^v21^"))","(("^v12^")" ^ " sll " ^ "("^v22^"))", env, asn_map
        | Shr  -> "(("^v11^")" ^ " srl " ^ "("^v21^"))","(("^v12^")" ^ " srl " ^ "("^v22^"))", env, asn_map
        | x    -> raise (Failure ("ERROR: Invalid Binary Operator ")) )
-   | Basn(i, e1) -> let asn_map = update_asn (Basn(i,Id(i.name))) cc asn_map
+   | Basn(i, e1) -> let asn_map = update_asn (Basn(i,Id(i.name))) asn_map
 		in let v1, v2, _, _ = weval e1 env asn_map cc
 		in  let slv_v1 = num_to_slv v1 i.size
 		in  let slv_v2 = num_to_slv v2 i.size
 		  in ("\t\t" ^ i.name ^ "_r" ^ (string_of_int (cc+1)) ^ " <= " ^ slv_v1 ^ ";\n" ),
 		     ("\t\t" ^ i.name ^ "_r" ^ (string_of_int (cc+1)) ^ " <= " ^ slv_v2 ^ ";\n" ), env, asn_map
-   | Subasn(i, strt, stop, e1) -> let asn_map = update_asn (Subasn(i, strt, stop, Id(i.name))) cc asn_map
+   | Subasn(i, strt, stop, e1) -> let asn_map = update_asn (Subasn(i, strt, stop, Id(i.name))) asn_map
 		in let v1, v2, _, _ = weval e1 env asn_map cc
 		in let slv_v1 = num_to_slv v1 ((abs (strt - stop)+1))
 		in let slv_v2 = num_to_slv v2 ((abs (strt - stop)+1))
@@ -134,18 +125,18 @@ in let translate_while (wcond : Sast.expr_detail) (wblock : Sast.s_stmt list) cu
 		in ("\t\t" ^ i.name ^ "_r" ^ (string_of_int (cc+1)) ^ range ^ " <= " ^ slv_v1 ^ ";\n" ),
 		   ("\t\t" ^ i.name ^ "_r" ^ (string_of_int (cc+1)) ^ range ^ " <= " ^ slv_v2 ^ ";\n" ), env, asn_map
    | Aasn(bs,sz,e1,e2) -> let v11,v12, _, asn_map = match e1 with
-      			  Num(i) -> let am = update_asn (Aasn(bs,i,Id("constant"),Id("constant"))) cc asn_map
+      			  Num(i) -> let am = update_asn (Aasn(bs,i,Id("constant"),Id("constant"))) asn_map
 					in (string_of_int i),(string_of_int i), env, am
 			| Id(i) -> let bus_from_var var = let (bus, _,_,_,_) = var in bus
 				   in (try let bs_i = bus_from_var (find_variable genv.scope i)
-					in let am = update_asn (Aasn(bs, bs_i.init, Id("constant"), Id("constant"))) cc asn_map
+					in let am = update_asn (Aasn(bs, bs_i.init, Id("constant"), Id("constant"))) asn_map
 					in ("ieee.std_logic_unsigned.conv_integer(" ^ i ^ "_r" ^ string_of_int (cc+1) ^ ")"),
 					   ("ieee.std_logic_unsigned.conv_integer(" ^ i ^ "_r" ^ string_of_int cc ^ ")"), env, am
-				    with Error(_) ->  let am = update_asn (Aasn(bs,sz,e1,Id(bs.name))) cc asn_map
+				    with Error(_) ->  let am = update_asn (Aasn(bs,sz,e1,Id(bs.name))) asn_map
 							in let i1,i2, _, _ = weval e1 env am cc(*TODO: This does not handle for loop index!*)
 							in ("ieee.std_logic_unsigned.conv_integer(" ^ i1 ^ ")"),
 							   ("ieee.std_logic_unsigned.conv_integer(" ^ i2 ^ ")"), env, am )
-    			| x -> let am = update_asn (Aasn(bs,sz,x,Id(bs.name))) cc asn_map
+    			| x -> let am = update_asn (Aasn(bs,sz,x,Id(bs.name))) asn_map
 				in let i1,i2, _, _ = weval x env am cc(*TODO: This does not handle for loop index!*)
 				in ("ieee.std_logic_unsigned.conv_integer(" ^ i1 ^ ")"),
 				   ("ieee.std_logic_unsigned.conv_integer(" ^ i2 ^ ")"), env, am
@@ -174,7 +165,7 @@ in let translate_while (wcond : Sast.expr_detail) (wblock : Sast.s_stmt list) cu
 				| Eq   -> "(("^v11^")" ^ " = " ^ "("^v21^"))", "(("^v12^")" ^ " = " ^ "("^v22^"))"
 				| Neq  -> "(("^v11^")" ^ " /= " ^ "("^v21^"))", "(("^v12^")" ^ " /= " ^ "("^v22^"))"
        				| x    -> let s1,s2, _, _ = weval e env asn_map cc in s1 ^ " /= 0", s2 ^ " /= 0" )
-			| x -> let s1,s2, _, _ = weval x env asn_map cc in s1 ^ " /= 0", s1 ^ " /= 0" )
+			| x -> let s1,s2, _, _ = weval x env asn_map cc in s1 ^ " /= 0", s2 ^ " /= 0" )
 	    in let _,if_block1,if_block2,asn_map,_ = translate_wstmt (env,"","",asn_map,cc) if_stmt
 	    in let _,else_block1,else_block2,asn_map,_ = translate_wstmt (env,"","",asn_map,cc) else_stmt
 	    in (env, (str1^"\t\tif (" ^ s1 ^ ") then \n" ^ if_block1 ^ "\n\t\telse\n" ^ else_block1 ^ "\t\tend if;\n"),
@@ -231,7 +222,8 @@ in let rec build_while wstr str1 str2 asn_map prev_asn_map cc = function
        				| x    -> let s1,s2, _, _ = weval en {sens_list=[]} asn_map cc in s1 ^ " /= 0", s2 ^ " /= 0" )
 			| x -> let s1,s2, _, _ = weval x {sens_list=[]} asn_map cc in s1 ^ " /= 0", s1 ^ " /= 0" )
 
-		       in let (sync,async) = get_asn curr_asn_map
+		       in let (_,async) = get_asn curr_asn_map
+		       in let sync = get_nc_asn curr_asn_map asn_map
 		       in let (psync,_) = get_asn prev_asn_map
 		       in let (wsync,wasync) = get_asn asn_map
 			(*No Asynchronous Variables can be assigned within a While loop or multiple assignments will occure!*)
@@ -244,9 +236,10 @@ in let rec build_while wstr str1 str2 asn_map prev_asn_map cc = function
 									with Not_found -> ""
 			in let _ = List.map chk_asn wsync
 			(*Find common sync assignments between curr_asn_map and while asn_map*)
-			in let nc_asn l asn = try let _ = (List.find (fun a -> a = asn) wsync) in l
+			(*in let nc_asn l asn = try let _ = (List.find (fun a -> a = asn) wsync) in l
 						      with Not_found -> asn::l
-			in let sync = List.fold_left nc_asn [] sync
+			in let sync = List.fold_left nc_asn [] sync*)
+			
 
 			in let print_ccp1 (ap) = (function
 			| Basn(x,_) -> ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ " <= " ^ x.name ^ "_r" ^ (string_of_int cc) ^ ";\n"
@@ -274,7 +267,7 @@ in let rec build_while wstr str1 str2 asn_map prev_asn_map cc = function
 		  			 if strt < stop then "(" ^ (string_of_int stop) ^ " downto " ^ (string_of_int strt) ^ ")" else
 							     "(" ^ (string_of_int strt) ^ " downto " ^ (string_of_int stop) ^ ")"
 				in ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ range ^ " <= ieee.std_logic_arith.conv_std_logic_vector("
-					  ^ string_of_int (x.init) ^ "," ^ string_of_int (x.size) ^ ");\n"
+					  ^ string_of_int (x.init) ^ "," ^ string_of_int ((abs (strt-stop))+1) ^ ");\n"
 			| x -> raise (Error("not an assignment"))	)
 			
 			in let nw = (List.fold_left print_ccp1 ("--Pos--\n") async) ^ (List.fold_left print_ccp1 ("") sync)
@@ -293,7 +286,7 @@ in let rec build_while wstr str1 str2 asn_map prev_asn_map cc = function
 			in let wstr = wstr^(nw^seqp^ywreset^posedge^swc_if^sen1^ywpr^ywyr1^swc_else^sen2^ywpr^ywyr2^endp)
 			in let str1 = "" in let str2 = ""
 			in let prev_asn_map = 
-				let up pam asn = update_asn asn cc pam
+				let up pam asn = update_asn asn pam
 				in List.fold_left up prev_asn_map wsync
 			in let asn_map = Im.empty
 			in let cc = cc+1 
@@ -306,10 +299,10 @@ in let wstr, str1, str2, asn_map, prev_asn_map, curr_cc = build_while "" "" "" I
 in let (psync,_) = get_asn prev_asn_map
 in let (sync,_) = get_asn asn_map
 	in let tmp_ans_map =
-		let up pam asn = update_asn asn curr_cc pam
+		let up pam asn = update_asn asn pam
 		in List.fold_left up curr_asn_map psync
 	in let curr_asn_map = 
-		let up pam asn = update_asn asn curr_cc pam
+		let up pam asn = update_asn asn pam
 		in List.fold_left up tmp_ans_map sync
 in {sens_list=[]},wstr,curr_asn_map,curr_cc
 
@@ -358,11 +351,11 @@ in {sens_list=[]},wstr,curr_asn_map,curr_cc
        | Shl  -> "(("^v1^")" ^ " sll " ^ "("^v2^"))"
        | Shr  -> "(("^v1^")" ^ " srl " ^ "("^v2^"))" 
        | x    -> raise (Failure ("ERROR: Invalid Binary Operator ")) ), env, asn_map
-   | Basn(i, e1) -> let asn_map = update_asn (Basn(i,Id(i.name))) cc asn_map
+   | Basn(i, e1) -> let asn_map = update_asn (Basn(i,Id(i.name))) asn_map
 		in let v1, env, _ = eval e1 env asn_map cc
 		in  let slv_v1 = num_to_slv v1 i.size
 		  in ("\t\t" ^ i.name ^ "_r" ^ (string_of_int cc) ^ " <= " ^ slv_v1 ^ ";\n" ) , env, asn_map
-   | Subasn(i, strt, stop, e1) -> let asn_map = update_asn (Subasn(i, strt, stop, Id(i.name))) cc asn_map
+   | Subasn(i, strt, stop, e1) -> let asn_map = update_asn (Subasn(i, strt, stop, Id(i.name))) asn_map
 		in let v1, env, _ = eval e1 env asn_map cc
 		in let slv_v1 = num_to_slv v1 ((abs (strt - stop)+1))
 		  in let range = 
@@ -370,16 +363,16 @@ in {sens_list=[]},wstr,curr_asn_map,curr_cc
 			"(" ^ (string_of_int strt) ^ " downto " ^ (string_of_int stop) ^ ")"
 		in ("\t\t" ^ i.name ^ "_r" ^ (string_of_int cc) ^ range ^ " <= " ^ slv_v1 ^ ";\n" ) , env, asn_map
    | Aasn(bs,sz,e1,e2) -> let v1, env, asn_map = match e1 with
-      			  Num(i) -> let am = update_asn (Aasn(bs,i,Id("constant"),Id("constant"))) cc asn_map
+      			  Num(i) -> let am = update_asn (Aasn(bs,i,Id("constant"),Id("constant"))) asn_map
 					in (string_of_int i), env, am
 			| Id(i) -> let bus_from_var var = let (bus, _,_,_,_) = var in bus
 				   in (try let bs_i = bus_from_var (find_variable genv.scope i)
-					in let am = update_asn (Aasn(bs, bs_i.init, Id("constant"), Id("constant"))) cc asn_map
+					in let am = update_asn (Aasn(bs, bs_i.init, Id("constant"), Id("constant"))) asn_map
 					in ("ieee.std_logic_unsigned.conv_integer(" ^ i ^ "_r" ^ string_of_int cc ^ ")"), env, am
-				    with Error(_) ->  let am = update_asn (Aasn(bs,sz,e1,Id(bs.name))) cc asn_map
+				    with Error(_) ->  let am = update_asn (Aasn(bs,sz,e1,Id(bs.name))) asn_map
 							in let i, env, _ = eval e1 env am cc(*TODO: This does not handle for loop index!*)
 							in ("ieee.std_logic_unsigned.conv_integer(" ^ i ^ ")"), env, am )
-    			| x -> let am = update_asn (Aasn(bs,sz,x,Id(bs.name))) cc asn_map
+    			| x -> let am = update_asn (Aasn(bs,sz,x,Id(bs.name))) asn_map
 				in let i, env, _ = eval x env am cc(*TODO: This does not handle for loop index!*)
 				in ("ieee.std_logic_unsigned.conv_integer(" ^ i ^ ")"), env, am
              in let v2, env, _ = eval e2 env asn_map cc
@@ -429,6 +422,11 @@ in {sens_list=[]},wstr,curr_asn_map,curr_cc
 							| _ -> curr_fc )
 			     			 in (List.fold_left inc_fc cc sl), sl
 			   		| _ -> raise (Error("While statement requires a block containing at least one POS and another statement")))
+			in let rsl = List.rev sl
+			in let rsl = match List.hd rsl with
+					  Pos(en) -> rsl
+					| _ -> (Pos(Num(1)))::rsl
+			in let sl = List.rev rsl
 			in translate_while e1 sl asn_map cc (curr_fc-1)
 	| Pos(en) -> let sen = ( match en with (*If boolean expression then ok, else add /= 0*)
 		         Binop(e1,op,e2) -> 
@@ -469,7 +467,7 @@ in {sens_list=[]},wstr,curr_asn_map,curr_cc
 		  			 if strt < stop then "(" ^ (string_of_int stop) ^ " downto " ^ (string_of_int strt) ^ ")" else
 							     "(" ^ (string_of_int strt) ^ " downto " ^ (string_of_int stop) ^ ")"
 				in ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ range ^ " <= ieee.std_logic_arith.conv_std_logic_vector("
-					  ^ string_of_int (x.init) ^ "," ^ string_of_int (x.size) ^ ");\n"
+					  ^ string_of_int (x.init) ^ "," ^ string_of_int ((abs (strt-stop))+1) ^ ");\n"
 			| x -> raise (Error("not an assignment"))	)
 			
 			in let nr = List.fold_left print_ccp1 ("--Pos--\n") async
@@ -487,24 +485,24 @@ in {sens_list=[]},wstr,curr_asn_map,curr_cc
 		let bus_from_var var = let (bus, _,_,_,_) = var in bus
 		(*using the field "size" in Barray(_,size,_) to identify which bus in the vector is assigned*)
 		in let actual_barray am bs =  function
-			  Num(i) -> let am = update_asn (Aasn(bs, i, Id("constant"), Id("constant"))) cc am
+			  Num(i) -> let am = update_asn (Aasn(bs, i, Id("constant"), Id("constant"))) am
 					in (string_of_int i), am
 			| Id(i) -> (try let bs_i = bus_from_var (find_variable genv.scope i)
-					in let am = update_asn (Aasn(bs, bs_i.init, Id("constant"), Id("constant"))) cc am
+					in let am = update_asn (Aasn(bs, bs_i.init, Id("constant"), Id("constant"))) am
 					in ("ieee.std_logic_unsigned.conv_integer(" ^ i ^ "_r" ^ (string_of_int cc) ^ ")"), am
 			   	   with Error(_) -> raise (Failure("Function Call to " ^ fdecl.fid ^ ": actual "^ bs.name ^ " is not static"))  )
     			| x -> raise (Failure("Function Call to " ^ fdecl.fid ^ ": illegal actual assignment"))
  	    in
 	    let s1, asn_map = (match (List.hd l) with
 	     Id(i) -> let bs_i = bus_from_var (find_variable cloc.scope i)
-			in let am = update_asn (Basn(bs_i, Id("port map"))) cc am (*I don't care about the expr_detail in the assignment*)
+			in let am = update_asn (Basn(bs_i, Id("port map"))) am (*I don't care about the expr_detail in the assignment*)
 			in i ^ "_r" ^ (string_of_int cc), am
 	   | Barray(bs, _, e1) -> let v1,am = actual_barray am bs e1
 				in bs.name ^ "_r" ^ (string_of_int cc) ^ "(" ^ v1 ^ ")", am
 	   | Subbus(bs, strt, stop) -> let range = 
 		   if strt < stop then "(" ^ (string_of_int stop) ^ " downto " ^ (string_of_int strt) ^ ")" else
 			"(" ^ (string_of_int strt) ^ " downto " ^ (string_of_int stop) ^ ")"
-			in let am = update_asn (Subasn(bs, strt, stop, Id("port map"))) cc am
+			in let am = update_asn (Subasn(bs, strt, stop, Id("port map"))) am
 			in bs.name ^ "_r" ^ (string_of_int cc) ^ range, am
 	   | x ->  raise (Failure ("Function Call to " ^ fdecl.fid ^ ": In/Output port mapping must use pre-existing variables " ))   ) 
 	   in  s^",\n\t\t"^b.name^" => " ^ s1 , (List.tl l) , asn_map   (* end of f *) 
@@ -568,7 +566,7 @@ in {sens_list=[]},wstr,curr_asn_map,curr_cc
 	in let asn_map =
 	  let rec ha0 asn0 = function
 	     [] -> asn0;
-	   | hd::tl -> let new_asn0 = update_asn hd 0 asn0
+	   | hd::tl -> let new_asn0 = update_asn hd asn0
 			in ha0 new_asn0 tl
 	   in ha0 Im.empty pin_asn
 

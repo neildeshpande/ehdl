@@ -36,10 +36,9 @@ let asn_map_to_list k _ (sync,async) = match k with
 let get_asn asn_map = Im.fold asn_map_to_list asn_map ([],[])
 
 
-(*Call this function when a reference to id or array occures*)
-(*takes ehdl variable name, current swap map and returns the current vhdl signal name*)
-let get_current_name vname swap_map = Sm.find vname swap_map
 
-(*Call this function when a pos statement is processed*)
-(*takes ehdl variable name, current clock cycle, current swap map and updates it*)
-let update_swap vname (cc : int) swap_map = Sm.add vname (vname^"_r"^(string_of_int cc)) swap_map
+
+
+
+
+

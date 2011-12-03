@@ -1,0 +1,10 @@
+int(32) c main(int(32) a, int(32) b){
+int(32) ar[4] = 1;
+
+while (a == 1){
+ if (b == ar[a(1:0)]) { ar[2] = a+b; }
+ else { c = ar[2]; }
+ POS(1)
+}
+
+}

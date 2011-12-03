@@ -74,6 +74,194 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
 	     in "entity " ^ cname ^ "  is \n\nport (\n" ^
 		"\tclk : in std_logic;\n\trst : in std_logic;\n" ^ s ^ ");\n\nend " ^ cname ^ ";\n\n"
 
+
+(*********************************)
+
+(*While loop processing*)
+in let rec translate_while (wcond : Sast.expr_detail) (wblock : Sast.s_stmt list) cur_asn_map (cur_cc : int) = 
+
+(* Evaluate expressions *) 
+ let rec weval e env asn_map cc= match e with
+    Num(i) -> string_of_int i,string_of_int i, env, asn_map 
+    | Id(i) -> (i ^ "_r" ^ (string_of_int (cc+1))),(i ^ "_r" ^ (string_of_int (cc))), env, asn_map
+    | Barray(bs, _, e1) -> let v1,v2 = match e1 with
+      			  Num(i) -> (string_of_int i), (string_of_int i)
+    			| x -> let i1,i2, _, _ = weval x env asn_map cc(*TODO: This does not handle for loop index!*)
+				in ("ieee.std_logic_unsigned.conv_integer(" ^ i1 ^ ")"), ("ieee.std_logic_unsigned.conv_integer(" ^ i2 ^ ")")
+		in (bs.name^"_r"^(string_of_int (cc+1))) ^ "(" ^ v1 ^ ")", (bs.name^"_r"^(string_of_int (cc))) ^ "(" ^ v2 ^ ")", env, asn_map 
+		(* Using "a" rather than "a(i)" in the sensitivity list, which is fine, because the list must be static *)  
+    | Subbus(bs, strt, stop) -> let range = 
+		    if strt < stop then "(" ^ (string_of_int stop) ^ " downto " ^ (string_of_int strt) ^ ")" else
+					"(" ^ (string_of_int strt) ^ " downto " ^ (string_of_int stop) ^ ")"
+		in (bs.name ^ "_r" ^ (string_of_int (cc+1))) ^ range, (bs.name ^ "_r" ^ (string_of_int (cc))) ^ range, env, asn_map
+    | Unop(op,e1) -> let v11,v12, _, _ = weval e1 env asn_map cc in 
+    ( match op with 
+      Umin -> "(- " ^ v11 ^ ")","(- " ^ v12 ^ ")", env, asn_map
+    | Not -> "(not " ^ v12 ^ ")","(not " ^ v12 ^ ")", env, asn_map
+    | x -> raise (Failure ("ERROR: Invalid Unary Operator ")) ) 
+    | Binop(e1,op,e2) -> 
+     let v11,v12,_, _ = weval e1 env asn_map cc in let v21, v22, _, _ = weval e2 env asn_map cc
+     in (match op with 
+	 Add  -> "(("^v11^")" ^ " + " ^ "("^v21^"))","(("^v12^")" ^ " + " ^ "("^v22^"))", env, asn_map
+       | Sub  -> "(("^v11^")" ^ " - " ^ "("^v21^"))","(("^v12^")" ^ " - " ^ "("^v22^"))" , env, asn_map
+       | Mul  -> "(("^v11^")" ^ " * " ^ "("^v21^"))","(("^v12^")" ^ " * " ^ "("^v22^"))"  , env, asn_map
+       | Div  -> "(("^v11^")" ^ " / " ^ "("^v21^"))","(("^v12^")" ^ " / " ^ "("^v22^"))" , env, asn_map
+       | Mod  -> "(("^v11^")" ^ "  mod " ^ "("^v21^"))","(("^v12^")" ^ "  mod " ^ "("^v22^"))" , env, asn_map
+       | Lt   -> "(("^v11^")" ^ " < " ^ "("^v21^"))","(("^v12^")" ^ " < " ^ "("^v22^"))", env, asn_map
+       | Gt   -> "(("^v11^")" ^ " > " ^ "("^v21^"))","(("^v12^")" ^ " > " ^ "("^v22^"))", env, asn_map
+       | Lte  -> "(("^v11^")" ^ " <= " ^ "("^v21^"))","(("^v12^")" ^ " <= " ^ "("^v22^"))", env, asn_map
+       | Gte  -> "(("^v11^")" ^ " >= " ^ "("^v21^"))","(("^v12^")" ^ " >= " ^ "("^v22^"))", env, asn_map
+       | Eq   -> "(("^v11^")" ^ " = " ^ "("^v21^"))","(("^v12^")" ^ " = " ^ "("^v22^"))", env, asn_map
+       | Neq  -> "(("^v11^")" ^ " /= " ^ "("^v21^"))","(("^v12^")" ^ " /= " ^ "("^v22^"))", env, asn_map
+       | Or   -> "(("^v11^")" ^ " or " ^ "("^v21^"))","(("^v12^")" ^ " or " ^ "("^v22^"))", env, asn_map
+       | And  -> "(("^v11^")" ^ " and " ^ "("^v21^"))","(("^v12^")" ^ " and " ^ "("^v22^"))", env, asn_map
+       | Xor  -> "(("^v11^")" ^ " xor  " ^ "("^v21^"))","(("^v12^")" ^ " xor  " ^ "("^v22^"))", env, asn_map
+       | Shl  -> "(("^v11^")" ^ " sll " ^ "("^v21^"))","(("^v12^")" ^ " sll " ^ "("^v22^"))", env, asn_map
+       | Shr  -> "(("^v11^")" ^ " srl " ^ "("^v21^"))","(("^v12^")" ^ " srl " ^ "("^v22^"))", env, asn_map
+       | x    -> raise (Failure ("ERROR: Invalid Binary Operator ")) )
+   | Basn(i, e1) -> let asn_map = update_asn (Basn(i,Id(i.name))) cc asn_map
+		in let v1, v2, _, _ = weval e1 env asn_map cc
+		in  let slv_v1 = num_to_slv v1 i.size
+		in  let slv_v2 = num_to_slv v2 i.size
+		  in ("\t\t" ^ i.name ^ "_r" ^ (string_of_int (cc+1)) ^ " <= " ^ slv_v1 ^ ";\n" ),
+		     ("\t\t" ^ i.name ^ "_r" ^ (string_of_int (cc+1)) ^ " <= " ^ slv_v2 ^ ";\n" ), env, asn_map
+   | Subasn(i, strt, stop, e1) -> let asn_map = update_asn (Subasn(i, strt, stop, Id(i.name))) cc asn_map
+		in let v1, v2, _, _ = weval e1 env asn_map cc
+		in let slv_v1 = num_to_slv v1 ((abs (strt - stop)+1))
+		in let slv_v2 = num_to_slv v2 ((abs (strt - stop)+1))
+		  in let range = 
+		   if strt < stop then "(" ^ (string_of_int stop) ^ " downto " ^ (string_of_int strt) ^ ")" else
+			"(" ^ (string_of_int strt) ^ " downto " ^ (string_of_int stop) ^ ")"
+		in ("\t\t" ^ i.name ^ "_r" ^ (string_of_int (cc+1)) ^ range ^ " <= " ^ slv_v1 ^ ";\n" ),
+		   ("\t\t" ^ i.name ^ "_r" ^ (string_of_int (cc+1)) ^ range ^ " <= " ^ slv_v2 ^ ";\n" ), env, asn_map
+   | Aasn(bs,sz,e1,e2) -> let v11,v12, _, asn_map = match e1 with
+      			  Num(i) -> let am = update_asn (Aasn(bs,i,Id("constant"),Id("constant"))) cc asn_map
+					in (string_of_int i),(string_of_int i), env, am
+			| Id(i) -> let bus_from_var var = let (bus, _,_,_,_) = var in bus
+				   in (try let bs_i = bus_from_var (find_variable genv.scope i)
+					in let am = update_asn (Aasn(bs, bs_i.init, Id("constant"), Id("constant"))) cc asn_map
+					in ("ieee.std_logic_unsigned.conv_integer(" ^ i ^ "_r" ^ string_of_int (cc+1) ^ ")"),
+					   ("ieee.std_logic_unsigned.conv_integer(" ^ i ^ "_r" ^ string_of_int cc ^ ")"), env, am
+				    with Error(_) ->  let am = update_asn (Aasn(bs,sz,e1,Id(bs.name))) cc asn_map
+							in let i1,i2, _, _ = weval e1 env am cc(*TODO: This does not handle for loop index!*)
+							in ("ieee.std_logic_unsigned.conv_integer(" ^ i1 ^ ")"),
+							   ("ieee.std_logic_unsigned.conv_integer(" ^ i2 ^ ")"), env, am )
+    			| x -> let am = update_asn (Aasn(bs,sz,x,Id(bs.name))) cc asn_map
+				in let i1,i2, _, _ = weval x env am cc(*TODO: This does not handle for loop index!*)
+				in ("ieee.std_logic_unsigned.conv_integer(" ^ i1 ^ ")"),
+				   ("ieee.std_logic_unsigned.conv_integer(" ^ i2 ^ ")"), env, am
+             	    in let v21,v22, _, _ = weval e2 env asn_map cc
+		     in  let slv_v21 = num_to_slv v21 bs.size
+		     in  let slv_v22 = num_to_slv v22 bs.size
+		     in ("\t\t" ^ bs.name ^ "_r" ^ (string_of_int (cc+1)) ^ "(" ^ v11 ^ ") " ^ " <= " ^ slv_v21 ^ ";\n" ),
+			("\t\t" ^ bs.name ^ "_r" ^ (string_of_int (cc+1)) ^ "(" ^ v12 ^ ") " ^ " <= " ^ slv_v22 ^ ";\n" ), env, asn_map
+   | x ->  raise (Failure ("Illegal expression in the body of the While statement" ))
+
+ (* translate_wstmt *)
+ in let rec translate_wstmt (env,str1,str2,asn_map,cc) stmt = 
+    (  match stmt with  
+	  Block(stmts)  -> List.fold_left translate_wstmt (env,str1,str2,asn_map,cc) (List.rev stmts) 
+	| Expr(ex) -> let (e, ex_t, ex_s) = ex
+	    in let s1,s2,_,asn_map = weval e env asn_map cc in (env, (str1 ^ s1), (str2 ^ s2), asn_map, cc)   
+	| If(e,if_stmt,else_stmt) -> 
+		let s1,s2 = ( match e with (*If boolean expression then ok, else add /= 0*)
+		         Binop(e1,op,e2) -> 
+     				let v11, v12, _, _ = weval e1 env asn_map cc in let v21, v22, env, _ = weval e2 env asn_map cc
+    				in (match op with 
+				  Lt   -> "(("^v11^")" ^ " < " ^ "("^v21^"))", "(("^v12^")" ^ " < " ^ "("^v22^"))"
+				| Gt   -> "(("^v11^")" ^ " > " ^ "("^v21^"))", "(("^v12^")" ^ " > " ^ "("^v22^"))"
+				| Lte  -> "(("^v11^")" ^ " <= " ^ "("^v21^"))", "(("^v12^")" ^ " <= " ^ "("^v22^"))"
+				| Gte  -> "(("^v11^")" ^ " >= " ^ "("^v21^"))", "(("^v12^")" ^ " >= " ^ "("^v22^"))"
+				| Eq   -> "(("^v11^")" ^ " = " ^ "("^v21^"))", "(("^v12^")" ^ " = " ^ "("^v22^"))"
+				| Neq  -> "(("^v11^")" ^ " /= " ^ "("^v21^"))", "(("^v12^")" ^ " /= " ^ "("^v22^"))"
+       				| x    -> let s1,s2, _, _ = weval e env asn_map cc in s1 ^ " /= 0", s2 ^ " /= 0" )
+			| x -> let s1,s2, _, _ = weval x env asn_map cc in s1 ^ " /= 0", s1 ^ " /= 0" )
+	    in let _,if_block1,if_block2,asn_map,_ = translate_wstmt (env,"","",asn_map,cc) if_stmt
+	    in let _,else_block1,else_block2,asn_map,_ = translate_wstmt (env,"","",asn_map,cc) else_stmt
+	    in (env, ("\t\tif (" ^ s1 ^ ") then \n" ^ if_block1 ^ "\n\t\telse\n" ^ else_block1 ^ "\t\tend if;\n"),
+		     ("\t\tif (" ^ s2 ^ ") then \n" ^ if_block2 ^ "\n\t\telse\n" ^ else_block2 ^ "\t\tend if;\n"), asn_map,cc)
+	| Switch ( e, c_list ) -> 
+	    ( match c_list with 
+	      [] -> env,"","",asn_map,cc
+	     |hd::tl ->       
+	      let (e1, stmt) = hd
+           in let s11,s12,_,_ = weval e env asn_map cc in let s21,s22,_,_ = weval e1 env asn_map cc  
+           in let s31 = "\t\tif (" ^ s11 ^ " = " ^ s21 ^ ") then \n"
+	   in let s32 = "\t\tif (" ^ s12 ^ " = " ^ s22 ^ ") then \n"  
+           in let _,if_block1,if_block2,asn_map,_ = translate_wstmt (env,"","",asn_map,cc) stmt
+		   in let _,s51,s52,asn_map,_ = List.fold_left (translate_case (s11,s12)) (env,"","",asn_map,cc) tl 	
+		   in (env, (s31 ^ if_block1 ^ s51 ^ "\t\tend if;\n"),(s32 ^ if_block2 ^ s52 ^ "\t\tend if;\n"),asn_map,cc ) )
+
+	(*| Pos(en) -> let sen = ( match en with (*If boolean expression then ok, else add /= 0*)
+		         Binop(e1,op,e2) -> 
+     				let v1, _, _ = weval e1 env asn_map cc in let v2, env, _ = weval e2 env asn_map cc
+    				in (match op with 
+				  Lt   -> "(("^v1^")" ^ " < " ^ "("^v2^"))"
+				| Gt   -> "(("^v1^")" ^ " > " ^ "("^v2^"))"
+				| Lte  -> "(("^v1^")" ^ " <= " ^ "("^v2^"))"
+				| Gte  -> "(("^v1^")" ^ " >= " ^ "("^v2^"))"
+				| Eq   -> "(("^v1^")" ^ " = " ^ "("^v2^"))"
+				| Neq  -> "(("^v1^")" ^ " /= " ^ "("^v2^"))"
+       				| x    -> let s, _, _ = weval en env asn_map cc in s ^ " /= 0" )
+			| x -> let s, _, _ = weval x env asn_map cc in s ^ " /= 0" )
+		       in let (sync,async) = get_asn asn_map
+			in let print_ccp1 (ap) = (function
+			  Basn(x,_) -> ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ " <= " ^ x.name ^ "_r" ^ (string_of_int cc) ^ ";\n"
+			| Aasn(x,i,e1,_) -> (match e1 with (*Either e1 is a constant or the whole array is assigned!*)
+						Id("constant") -> ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ "("
+								  ^ string_of_int i ^ ")" ^ " <= " ^ x.name ^ "_r"
+								  ^ (string_of_int cc) ^ "(" ^ string_of_int i ^ ")" ^ ";\n"
+						| e -> ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ " <= " ^ x.name ^ "_r"
+						          ^ (string_of_int cc) ^ ";\n"		)
+			| Subasn(x,strt,stop,_) -> let range = 
+		  			 if strt < stop then "(" ^ (string_of_int stop) ^ " downto " ^ (string_of_int strt) ^ ")" else
+							     "(" ^ (string_of_int strt) ^ " downto " ^ (string_of_int stop) ^ ")"
+				in ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ range ^ " <= " ^ x.name ^ "_r" ^ (string_of_int cc) ^ range ^ ";\n"
+			| x -> raise (Error("not an assignment"))	)
+			in let print_reset (ap) = (function
+			  Basn(x,_) -> ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ " <= ieee.std_logic_arith.conv_std_logic_vector("
+					  ^ string_of_int (x.init) ^ "," ^ string_of_int (x.size) ^ ");\n"
+			| Aasn(x,i,e1,_) -> (match e1 with (*Either e1 is a constant or the whole array is assigned!*)
+						Id("constant") -> ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ "("
+								  ^ string_of_int i ^ ")" ^ " <= ieee.std_logic_arith.conv_std_logic_vector("
+					  			  ^ string_of_int (x.init) ^ "," ^ string_of_int (x.size) ^ ");\n"
+						| e -> ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ " <= (others => ieee.std_logic_arith.conv_std_logic_vector("
+					  			  ^ string_of_int (x.init) ^ "," ^ string_of_int (x.size) ^ "));\n"		)
+			| Subasn(x,strt,stop,_) -> let range = 
+		  			 if strt < stop then "(" ^ (string_of_int stop) ^ " downto " ^ (string_of_int strt) ^ ")" else
+							     "(" ^ (string_of_int strt) ^ " downto " ^ (string_of_int stop) ^ ")"
+				in ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ range ^ " <= ieee.std_logic_arith.conv_std_logic_vector("
+					  ^ string_of_int (x.init) ^ "," ^ string_of_int (x.size) ^ ");\n"
+			| x -> raise (Error("not an assignment"))	)
+			
+			in let nr = List.fold_left print_ccp1 ("--Pos--\n") async
+			in let reset = List.fold_left print_reset ("") sync
+			in let yr = List.fold_left print_ccp1 ("") sync
+			in let seqp = "process(clk,rst)\nbegin\nif rst = '0' then\n"
+			in let posedge = "elsif clk'event and clk = '1' then\n"
+			in let sen = "if " ^ sen ^ " then\n"
+			in let endp = "end if;\nend if;\nend process;\n\n"
+			in env,(nr^seqp^reset^posedge^sen^yr^endp),asn_map,(cc+1)*)
+
+		| x -> 	raise (Failure ("Illegal statement within the body of the While statement" )) )
+    and translate_case (left1,left2) (env,s1,s2,asn_map,cc) (e,stmt) = 
+      ( match e with 
+     (* SAST needs to check there is atmost one dafault and no duplicate 
+     case expressions *) 
+          Noexpr->   translate_wstmt (env,s1 ^ "\t\telse \n", s2 ^ "\t\telse \n",asn_map,cc) stmt   
+        | x     ->    let right1,right2,_,asn_map = weval e env asn_map cc
+         in translate_wstmt (env,s1 ^ "\t\telsif (" ^ left1 ^ " = " ^ right1 ^ ") then \n",
+			         s2 ^ "\t\telsif (" ^ left2 ^ " = " ^ right2 ^ ") then \n",asn_map,cc ) stmt  
+         )
+(* end of translate_wstmt *)
+
+in let env, wtstr, wfstr, asn_map, cc = List.fold_left translate_wstmt ({sens_list=[]},"","", (Im.empty),cur_cc) wblock
+in {sens_list=[]},wtstr^wfstr,asn_map,cc
+
+(*Return sensitivity list, string, asn_map, cc *)
+(*End of while loop processing*)
+
+(*********************************)
    
 (* Evaluate expressions *) 
  in let rec eval e env asn_map cc= match e with
@@ -182,7 +370,25 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
            in let s3 = "\t\tif (" ^ s1 ^ " = " ^ s2 ^ ") then \n"  
            in let env,if_block,asn_map,_ = translate_stmt (env,"",asn_map,cc) stmt
 		   in let env,s5,asn_map,_ = List.fold_left (translate_case s1) (env,"",asn_map,cc) tl 	
-		   in (env, (s3 ^ if_block ^ s5 ^ "\t\tend if;\n"),asn_map,cc ) )		      
+		   in (env, (s3 ^ if_block ^ s5 ^ "\t\tend if;\n"),asn_map,cc ) )
+
+
+ 
+	| While(e1,s1) -> (match s1 with
+				Block(sl) -> translate_while e1 sl asn_map cc
+			   | _ -> raise (Error("While statement requires a block containing at least one POS and another statement")))
+			  (*A scorri s1 fino al primo POS e crea
+			  	1)while_asn_map
+				2)stringa che esegue gli statement usando cc (leggi ingressi quando e1 è falsa
+				3)stringa che esegue gli statement usando cc+1 (usa i valori campionati durante il loop)*)
+			  (*B ripeti A finché s1 è finito*)
+			  (*C collega in modo asincrono i segnali già assegnati, ma non interessati dal while*)
+			  (*D scrivi il processo sequenziale assegnando solo le variabili in while_asn_map
+				1)reset
+				2)if e1 = true
+				3)if e2 = true *)
+
+
 	| Pos(en) -> let sen = ( match en with (*If boolean expression then ok, else add /= 0*)
 		         Binop(e1,op,e2) -> 
      				let v1, _, _ = eval e1 env asn_map cc in let v2, env, _ = eval e2 env asn_map cc

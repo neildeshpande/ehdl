@@ -75,13 +75,12 @@ let (cloc, cname) = (cobj.floc,cobj.fid)
 		"\tclk : in std_logic;\n\trst : in std_logic;\n" ^ s ^ ");\n\nend " ^ cname ^ ";\n\n"
 
 
-(*********************************)
+(***************While loop processing******************)
 
-(*While loop processing*)
-in let rec translate_while (wcond : Sast.expr_detail) (wblock : Sast.s_stmt list) cur_asn_map (cur_cc : int) = 
+in let translate_while (wcond : Sast.expr_detail) (wblock : Sast.s_stmt list) curr_asn_map (curr_cc : int) (curr_fc : int)= 
 
 (* Evaluate expressions *) 
- let rec weval e env asn_map cc= match e with
+ let rec weval e env asn_map cc = match e with
     Num(i) -> string_of_int i,string_of_int i, env, asn_map 
     | Id(i) -> (i ^ "_r" ^ (string_of_int (cc+1))),(i ^ "_r" ^ (string_of_int (cc))), env, asn_map
     | Barray(bs, _, e1) -> let v1,v2 = match e1 with
@@ -97,7 +96,7 @@ in let rec translate_while (wcond : Sast.expr_detail) (wblock : Sast.s_stmt list
     | Unop(op,e1) -> let v11,v12, _, _ = weval e1 env asn_map cc in 
     ( match op with 
       Umin -> "(- " ^ v11 ^ ")","(- " ^ v12 ^ ")", env, asn_map
-    | Not -> "(not " ^ v12 ^ ")","(not " ^ v12 ^ ")", env, asn_map
+    | Not -> "(not " ^ v11 ^ ")","(not " ^ v12 ^ ")", env, asn_map
     | x -> raise (Failure ("ERROR: Invalid Unary Operator ")) ) 
     | Binop(e1,op,e2) -> 
      let v11,v12,_, _ = weval e1 env asn_map cc in let v21, v22, _, _ = weval e2 env asn_map cc
@@ -166,7 +165,7 @@ in let rec translate_while (wcond : Sast.expr_detail) (wblock : Sast.s_stmt list
 	| If(e,if_stmt,else_stmt) -> 
 		let s1,s2 = ( match e with (*If boolean expression then ok, else add /= 0*)
 		         Binop(e1,op,e2) -> 
-     				let v11, v12, _, _ = weval e1 env asn_map cc in let v21, v22, env, _ = weval e2 env asn_map cc
+     				let v11, v12, _, _ = weval e1 env asn_map cc in let v21, v22, _, _ = weval e2 env asn_map cc
     				in (match op with 
 				  Lt   -> "(("^v11^")" ^ " < " ^ "("^v21^"))", "(("^v12^")" ^ " < " ^ "("^v22^"))"
 				| Gt   -> "(("^v11^")" ^ " > " ^ "("^v21^"))", "(("^v12^")" ^ " > " ^ "("^v22^"))"
@@ -178,8 +177,8 @@ in let rec translate_while (wcond : Sast.expr_detail) (wblock : Sast.s_stmt list
 			| x -> let s1,s2, _, _ = weval x env asn_map cc in s1 ^ " /= 0", s1 ^ " /= 0" )
 	    in let _,if_block1,if_block2,asn_map,_ = translate_wstmt (env,"","",asn_map,cc) if_stmt
 	    in let _,else_block1,else_block2,asn_map,_ = translate_wstmt (env,"","",asn_map,cc) else_stmt
-	    in (env, ("\t\tif (" ^ s1 ^ ") then \n" ^ if_block1 ^ "\n\t\telse\n" ^ else_block1 ^ "\t\tend if;\n"),
-		     ("\t\tif (" ^ s2 ^ ") then \n" ^ if_block2 ^ "\n\t\telse\n" ^ else_block2 ^ "\t\tend if;\n"), asn_map,cc)
+	    in (env, (str1^"\t\tif (" ^ s1 ^ ") then \n" ^ if_block1 ^ "\n\t\telse\n" ^ else_block1 ^ "\t\tend if;\n"),
+		     (str2^"\t\tif (" ^ s2 ^ ") then \n" ^ if_block2 ^ "\n\t\telse\n" ^ else_block2 ^ "\t\tend if;\n"), asn_map,cc)
 	| Switch ( e, c_list ) -> 
 	    ( match c_list with 
 	      [] -> env,"","",asn_map,cc
@@ -190,23 +189,67 @@ in let rec translate_while (wcond : Sast.expr_detail) (wblock : Sast.s_stmt list
 	   in let s32 = "\t\tif (" ^ s12 ^ " = " ^ s22 ^ ") then \n"  
            in let _,if_block1,if_block2,asn_map,_ = translate_wstmt (env,"","",asn_map,cc) stmt
 		   in let _,s51,s52,asn_map,_ = List.fold_left (translate_case (s11,s12)) (env,"","",asn_map,cc) tl 	
-		   in (env, (s31 ^ if_block1 ^ s51 ^ "\t\tend if;\n"),(s32 ^ if_block2 ^ s52 ^ "\t\tend if;\n"),asn_map,cc ) )
+		   in (env, (str1^s31 ^ if_block1 ^ s51 ^ "\t\tend if;\n"),(str2^s32 ^ if_block2 ^ s52 ^ "\t\tend if;\n"),asn_map,cc ) )
+	| x -> 	raise (Failure ("Illegal statement within the body of the While statement" )) )
+    and translate_case (left1,left2) (env,s1,s2,asn_map,cc) (e,stmt) = 
+      ( match e with 
+     (* SAST needs to check there is atmost one dafault and no duplicate 
+     case expressions *) 
+          Noexpr->   translate_wstmt (env,s1 ^ "\t\telse \n", s2 ^ "\t\telse \n",asn_map,cc) stmt   
+        | x     ->    let right1,right2,_,asn_map = weval e env asn_map cc
+         in translate_wstmt (env,s1 ^ "\t\telsif (" ^ left1 ^ " = " ^ right1 ^ ") then \n",
+			         s2 ^ "\t\telsif (" ^ left2 ^ " = " ^ right2 ^ ") then \n",asn_map,cc ) stmt  
+         )
+(* end of translate_wstmt *)
 
-	(*| Pos(en) -> let sen = ( match en with (*If boolean expression then ok, else add /= 0*)
-		         Binop(e1,op,e2) -> 
-     				let v1, _, _ = weval e1 env asn_map cc in let v2, env, _ = weval e2 env asn_map cc
+(*While condition: always check the output of the loop*)
+in let wcs1, wcs2 = match wcond with 
+	  Binop(e1,op,e2) -> let v11, v12, _, _ = weval e1 {sens_list=[]} Im.empty curr_fc in let v21, v22, _, _ = weval e2 {sens_list=[]} Im.empty curr_fc
     				in (match op with 
-				  Lt   -> "(("^v1^")" ^ " < " ^ "("^v2^"))"
-				| Gt   -> "(("^v1^")" ^ " > " ^ "("^v2^"))"
-				| Lte  -> "(("^v1^")" ^ " <= " ^ "("^v2^"))"
-				| Gte  -> "(("^v1^")" ^ " >= " ^ "("^v2^"))"
-				| Eq   -> "(("^v1^")" ^ " = " ^ "("^v2^"))"
-				| Neq  -> "(("^v1^")" ^ " /= " ^ "("^v2^"))"
-       				| x    -> let s, _, _ = weval en env asn_map cc in s ^ " /= 0" )
-			| x -> let s, _, _ = weval x env asn_map cc in s ^ " /= 0" )
-		       in let (sync,async) = get_asn asn_map
+				  Lt   -> "(("^v11^")" ^ " < " ^ "("^v21^"))", "(("^v12^")" ^ " < " ^ "("^v22^"))"
+				| Gt   -> "(("^v11^")" ^ " > " ^ "("^v21^"))", "(("^v12^")" ^ " > " ^ "("^v22^"))"
+				| Lte  -> "(("^v11^")" ^ " <= " ^ "("^v21^"))", "(("^v12^")" ^ " <= " ^ "("^v22^"))"
+				| Gte  -> "(("^v11^")" ^ " >= " ^ "("^v21^"))", "(("^v12^")" ^ " >= " ^ "("^v22^"))"
+				| Eq   -> "(("^v11^")" ^ " = " ^ "("^v21^"))", "(("^v12^")" ^ " = " ^ "("^v22^"))"
+				| Neq  -> "(("^v11^")" ^ " /= " ^ "("^v21^"))", "(("^v12^")" ^ " /= " ^ "("^v22^"))"
+       				| x    -> let s1, s2, _, _ = weval wcond {sens_list=[]} Im.empty curr_fc in s1 ^ " /= 0", s2 ^ " /= 0" )
+	| x -> let s1,s2, _, _ = weval x {sens_list=[]} Im.empty curr_fc in s1 ^ " /= 0", s2 ^ " /= 0"
+
+(*Translating While loop*)
+in let rec build_while wstr str1 str2 asn_map prev_asn_map cc = function
+	  [] -> wstr, str1, str2, asn_map, prev_asn_map, cc
+	| (Pos(en))::tl -> (let sen1, sen2 = ( match en with (*If boolean expression then ok, else add /= 0*)
+		         Binop(e1,op,e2) -> 
+     				let v11,v12, _, _ = weval e1 {sens_list=[]} asn_map cc in let v21,v22, _, _ = weval e2 {sens_list=[]} asn_map cc
+    				in (match op with 
+				  Lt   -> "(("^v11^")" ^ " < " ^ "("^v21^"))", "(("^v12^")" ^ " < " ^ "("^v22^"))"
+				| Gt   -> "(("^v11^")" ^ " > " ^ "("^v21^"))", "(("^v12^")" ^ " > " ^ "("^v22^"))"
+				| Lte  -> "(("^v11^")" ^ " <= " ^ "("^v21^"))", "(("^v12^")" ^ " <= " ^ "("^v22^"))"
+				| Gte  -> "(("^v11^")" ^ " >= " ^ "("^v21^"))", "(("^v12^")" ^ " >= " ^ "("^v22^"))"
+				| Eq   -> "(("^v11^")" ^ " = " ^ "("^v21^"))", "(("^v12^")" ^ " = " ^ "("^v22^"))"
+				| Neq  -> "(("^v11^")" ^ " /= " ^ "("^v21^"))", "(("^v12^")" ^ " /= " ^ "("^v22^"))"
+       				| x    -> let s1,s2, _, _ = weval en {sens_list=[]} asn_map cc in s1 ^ " /= 0", s2 ^ " /= 0" )
+			| x -> let s1,s2, _, _ = weval x {sens_list=[]} asn_map cc in s1 ^ " /= 0", s1 ^ " /= 0" )
+
+		       in let (sync,async) = get_asn curr_asn_map
+		       in let (psync,_) = get_asn prev_asn_map
+		       in let (wsync,wasync) = get_asn asn_map
+			(*No Asynchronous Variables can be assigned within a While loop or multiple assignments will occure!*)
+			in let _ = match wasync with
+				[] -> ""
+			       | _ -> raise (Error("Asynchronous variables assigned in the body of a While statement"))
+			(*Even inside the While statement Variables can be assigned only once!*)
+			in let chk_asn (asn : Sast.expr_detail) = try let _  = (List.find (fun a -> a = asn) psync) in 
+									raise (Error("Multiple variable assignment within a While statement"))
+									with Not_found -> ""
+			in let _ = List.map chk_asn wsync
+			(*Find common sync assignments between curr_asn_map and while asn_map*)
+			in let nc_asn l asn = try let _ = (List.find (fun a -> a = asn) wsync) in l
+						      with Not_found -> asn::l
+			in let sync = List.fold_left nc_asn [] sync
+
 			in let print_ccp1 (ap) = (function
-			  Basn(x,_) -> ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ " <= " ^ x.name ^ "_r" ^ (string_of_int cc) ^ ";\n"
+			| Basn(x,_) -> ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ " <= " ^ x.name ^ "_r" ^ (string_of_int cc) ^ ";\n"
 			| Aasn(x,i,e1,_) -> (match e1 with (*Either e1 is a constant or the whole array is assigned!*)
 						Id("constant") -> ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ "("
 								  ^ string_of_int i ^ ")" ^ " <= " ^ x.name ^ "_r"
@@ -219,7 +262,7 @@ in let rec translate_while (wcond : Sast.expr_detail) (wblock : Sast.s_stmt list
 				in ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ range ^ " <= " ^ x.name ^ "_r" ^ (string_of_int cc) ^ range ^ ";\n"
 			| x -> raise (Error("not an assignment"))	)
 			in let print_reset (ap) = (function
-			  Basn(x,_) -> ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ " <= ieee.std_logic_arith.conv_std_logic_vector("
+			| Basn(x,_) -> ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ " <= ieee.std_logic_arith.conv_std_logic_vector("
 					  ^ string_of_int (x.init) ^ "," ^ string_of_int (x.size) ^ ");\n"
 			| Aasn(x,i,e1,_) -> (match e1 with (*Either e1 is a constant or the whole array is assigned!*)
 						Id("constant") -> ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ "("
@@ -234,34 +277,43 @@ in let rec translate_while (wcond : Sast.expr_detail) (wblock : Sast.s_stmt list
 					  ^ string_of_int (x.init) ^ "," ^ string_of_int (x.size) ^ ");\n"
 			| x -> raise (Error("not an assignment"))	)
 			
-			in let nr = List.fold_left print_ccp1 ("--Pos--\n") async
-			in let reset = List.fold_left print_reset ("") sync
-			in let yr = List.fold_left print_ccp1 ("") sync
+			in let nw = (List.fold_left print_ccp1 ("--Pos--\n") async) ^ (List.fold_left print_ccp1 ("") sync)
+			in let ywreset = (List.fold_left print_reset ("") wsync) ^ (List.fold_left print_reset ("") psync)
+			in let ywpr = List.fold_left print_ccp1 ("") psync
+			in let ywyr1 = str1
+			in let ywyr2 = str2
+
 			in let seqp = "process(clk,rst)\nbegin\nif rst = '0' then\n"
 			in let posedge = "elsif clk'event and clk = '1' then\n"
-			in let sen = "if " ^ sen ^ " then\n"
-			in let endp = "end if;\nend if;\nend process;\n\n"
-			in env,(nr^seqp^reset^posedge^sen^yr^endp),asn_map,(cc+1)*)
+			in let swc_if = "if " ^ wcs1 ^ "then\n"
+			in let sen1 = "if " ^ sen1 ^ " then\n"
+			in let swc_else = "end if;\nelsif " ^ wcs2 ^ " then\n"
+			in let sen2 = "if " ^ sen2 ^ " then\n"
+			in let endp = "end if;\nend if;\nend if;\nend process;\n\n"
+			in let wstr = wstr^(nw^seqp^ywreset^posedge^swc_if^sen1^ywpr^ywyr1^swc_else^sen2^ywpr^ywyr2^endp)
+			in let str1 = "" in let str2 = ""
+			in let prev_asn_map = 
+				let up pam asn = update_asn asn cc pam
+				in List.fold_left up prev_asn_map wsync
+			in let asn_map = Im.empty
+			in let cc = cc+1 
+			in build_while wstr str1 str2 asn_map prev_asn_map cc tl )
+	| hd::tl -> let _,str1,str2,asn_map,cc = translate_wstmt ({sens_list=[]},str1,str2, asn_map ,cc) hd
+		in build_while wstr str1 str2 asn_map prev_asn_map cc tl
 
-		| x -> 	raise (Failure ("Illegal statement within the body of the While statement" )) )
-    and translate_case (left1,left2) (env,s1,s2,asn_map,cc) (e,stmt) = 
-      ( match e with 
-     (* SAST needs to check there is atmost one dafault and no duplicate 
-     case expressions *) 
-          Noexpr->   translate_wstmt (env,s1 ^ "\t\telse \n", s2 ^ "\t\telse \n",asn_map,cc) stmt   
-        | x     ->    let right1,right2,_,asn_map = weval e env asn_map cc
-         in translate_wstmt (env,s1 ^ "\t\telsif (" ^ left1 ^ " = " ^ right1 ^ ") then \n",
-			         s2 ^ "\t\telsif (" ^ left2 ^ " = " ^ right2 ^ ") then \n",asn_map,cc ) stmt  
-         )
-(* end of translate_wstmt *)
+in let wstr, str1, str2, asn_map, prev_asn_map, curr_cc = build_while "" "" "" Im.empty Im.empty curr_cc wblock
 
-in let env, wtstr, wfstr, asn_map, cc = List.fold_left translate_wstmt ({sens_list=[]},"","", (Im.empty),cur_cc) wblock
-in {sens_list=[]},wtstr^wfstr,asn_map,cc
+in let (psync,_) = get_asn prev_asn_map
+in let (sync,_) = get_asn asn_map
+	in let tmp_ans_map =
+		let up pam asn = update_asn asn curr_cc pam
+		in List.fold_left up curr_asn_map psync
+	in let curr_asn_map = 
+		let up pam asn = update_asn asn curr_cc pam
+		in List.fold_left up tmp_ans_map sync
+in {sens_list=[]},wstr,curr_asn_map,curr_cc
 
-(*Return sensitivity list, string, asn_map, cc *)
-(*End of while loop processing*)
-
-(*********************************)
+(***************End of while loop processing******************)
    
 (* Evaluate expressions *) 
  in let rec eval e env asn_map cc= match e with
@@ -371,24 +423,13 @@ in {sens_list=[]},wtstr^wfstr,asn_map,cc
            in let env,if_block,asn_map,_ = translate_stmt (env,"",asn_map,cc) stmt
 		   in let env,s5,asn_map,_ = List.fold_left (translate_case s1) (env,"",asn_map,cc) tl 	
 		   in (env, (s3 ^ if_block ^ s5 ^ "\t\tend if;\n"),asn_map,cc ) )
-
-
- 
-	| While(e1,s1) -> (match s1 with
-				Block(sl) -> translate_while e1 sl asn_map cc
-			   | _ -> raise (Error("While statement requires a block containing at least one POS and another statement")))
-			  (*A scorri s1 fino al primo POS e crea
-			  	1)while_asn_map
-				2)stringa che esegue gli statement usando cc (leggi ingressi quando e1 è falsa
-				3)stringa che esegue gli statement usando cc+1 (usa i valori campionati durante il loop)*)
-			  (*B ripeti A finché s1 è finito*)
-			  (*C collega in modo asincrono i segnali già assegnati, ma non interessati dal while*)
-			  (*D scrivi il processo sequenziale assegnando solo le variabili in while_asn_map
-				1)reset
-				2)if e1 = true
-				3)if e2 = true *)
-
-
+	| While(e1,s1) -> let curr_fc,sl = (match s1 with
+					Block(sl) -> let inc_fc curr_fc = (function
+							Pos(_) -> curr_fc + 1
+							| _ -> curr_fc )
+			     			 in (List.fold_left inc_fc cc sl), sl
+			   		| _ -> raise (Error("While statement requires a block containing at least one POS and another statement")))
+			in translate_while e1 sl asn_map cc (curr_fc-1)
 	| Pos(en) -> let sen = ( match en with (*If boolean expression then ok, else add /= 0*)
 		         Binop(e1,op,e2) -> 
      				let v1, _, _ = eval e1 env asn_map cc in let v2, env, _ = eval e2 env asn_map cc

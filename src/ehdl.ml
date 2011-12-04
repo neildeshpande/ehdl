@@ -274,13 +274,13 @@ in let rec build_while wstr str1 str2 asn_map prev_asn_map cc = function
 			in let ywreset = (List.fold_left print_reset ("") wsync) ^ (List.fold_left print_reset ("") psync)
 			in let ywpr = List.fold_left print_ccp1 ("") psync
 			in let ywyr1 = str1
-			in let ywyr2 = str2
+			in let ywyr2 = (List.fold_left print_ccp1 ("") wsync) (*use str2 for the other version*)
 
 			in let seqp = "process(clk,rst)\nbegin\nif rst = '0' then\n"
 			in let posedge = "elsif clk'event and clk = '1' then\n"
 			in let swc_if = "if " ^ wcs1 ^ "then\n"
 			in let sen1 = "if " ^ sen1 ^ " then\n"
-			in let swc_else = "end if;\nelsif " ^ wcs2 ^ " then\n"
+			in let swc_else = "end if;\nelse\n" (*use "end if;\nelsif " ^ wcs2 ^ " then\n" for the other version*)
 			in let sen2 = "if " ^ sen2 ^ " then\n"
 			in let endp = "end if;\nend if;\nend if;\nend process;\n\n"
 			in let wstr = wstr^(nw^seqp^ywreset^posedge^swc_if^sen1^ywpr^ywyr1^swc_else^sen2^ywpr^ywyr2^endp)

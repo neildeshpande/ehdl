@@ -1,0 +1,13 @@
+(int(10) c,int(10) d, int(10) e, int(10) f) 
+main(int(1) choose,int(10) a, int(10) b) {  
+    if (choose == 1) {  
+        c = a;
+        d = b;  
+    } else { 
+        c = b; 
+        d = a; 
+    }
+    
+    e = a + b; 
+    f = a - b;
+}

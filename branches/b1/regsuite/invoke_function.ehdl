@@ -1,0 +1,24 @@
+const uint(1) en = 1;
+
+int(32) c adder(int(32) a, int(32) b) { 
+	
+	c = a + b;  // perform check that c has the same type as return value
+}
+
+
+(int(32) c, ASYNC int(32) d, int(8) g) main(ASYNC int(32) e, int(32) f) {
+	int(32) ar[3] = 1;
+	(ar[0]) = adder(e,f);
+	(ar[en]) = adder(ar[0],f);
+	ar[2] = 2;
+	//ar[2] = 4;
+
+	(c) = adder(e,f);
+	POS(1 == 1); 
+	(d) = adder(f,e(0:31)); 
+	
+	g = e(0:7);
+	POS(en == 1);
+}
+
+

@@ -101,7 +101,7 @@ adecl :
 
 stmt :
   LBRACE stmt_list RBRACE			{ Block(List.rev $2) }
-| expr SEMI              			{ Expr($1) }
+| asn_expr SEMI              			{ Expr($1) }
 | POS LPAREN other_expr RPAREN SEMI			{ Pos($3) } 
 | IF LPAREN other_expr RPAREN stmt %prec NOELSE 	{ If($3, $5, Block([]))}
 | IF LPAREN other_expr RPAREN stmt ELSE stmt    	{ If($3,$5,$7) }

@@ -72,8 +72,9 @@ let add_index_list il = function
 	  Aasn(x,i,e1,_) -> if e1 = Id("constant") then i::il else raise(Error("Multiple assignments to "^x.name^" within the while statement!"))
 	| _ -> raise (Error("Illegal assignment to variable "^x.name))
 in let il = List.fold_left add_index_list [] l
+in let il = sz::il
 in let il = List.sort (fun c1 c2 -> Pervasives.compare c1 c2) il
-in let rec irange (ci,l) maxi = if ((ci < maxi) && (ci < sz)) then irange ((ci+1),(ci::l)) maxi else ci, (List.rev l)
+in let rec irange (ci,l) maxi = if ((ci < maxi) && (ci < sz)) then irange ((ci+1),(ci::l)) maxi else (ci+1), (List.rev l)
 in let _,il = List.fold_left irange (0,[]) il
 in let index_to_aasn i = Aasn(x,i,Id("constant"),Id("constant"))
 in List.map index_to_aasn il
@@ -96,7 +97,8 @@ let get_nc_asn map1 map2 =
 							  Aasn(x0,sz0,e01,_) -> ( match e01 with
 									Id("constant") -> asn::ncal
 									(*If not Id("constant") then return all Aasn not in hd::tl*)
-									| _ ->	ncaasn x0 sz0 (hd::tl) )
+									| _ ->	let nl = ncaasn x0 sz0 (hd::tl)
+										in List.fold_left (fun l e -> e::l) ncal nl	)
 							| _ -> raise (Error("Illegal assignment to variable "^x.name)) )
 						| _ -> if tl = [] then ncal else raise(Error("Multiple assignments to "^x.name^" within the while statement!"))
 							(*The assignment is in common for sure!*)  )

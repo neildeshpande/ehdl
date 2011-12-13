@@ -401,7 +401,7 @@ in {sens_list=[]},wstr,curr_asn_map,curr_cc
 			| x -> let s, env, _ = eval x env asn_map cc in s ^ " /= 0", env )
 	    in let env,if_block,asn_map,_ = translate_stmt (env,"",asn_map,cc) if_stmt
 	    in let env,else_block,asn_map,_ = translate_stmt (env,"",asn_map,cc) else_stmt
-	    in (env, ("\t\tif (" ^ s ^ ") then \n" ^ if_block 
+	    in (env, (str^"\t\tif (" ^ s ^ ") then \n" ^ if_block 
 	    (* the tabbing needs to be done programmatically, not manually. 
 	    I am assuming SAST will tell us the nesting depth *)    
 	    ^ "\n\t\telse\n" ^ else_block ^ "\t\tend if;\n"), asn_map,cc)

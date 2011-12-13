@@ -164,8 +164,8 @@ in let translate_while (wcond : Sast.expr_detail) (wblock : Sast.s_stmt list) cu
 				| Gte  -> "(("^v11^")" ^ " >= " ^ "("^v21^"))", "(("^v12^")" ^ " >= " ^ "("^v22^"))"
 				| Eq   -> "(("^v11^")" ^ " = " ^ "("^v21^"))", "(("^v12^")" ^ " = " ^ "("^v22^"))"
 				| Neq  -> "(("^v11^")" ^ " /= " ^ "("^v21^"))", "(("^v12^")" ^ " /= " ^ "("^v22^"))"
-       				| x    -> let s1,s2, _, _ = weval e env asn_map cc in s1 ^ " /= 0", s2 ^ " /= 0" )
-			| x -> let s1,s2, _, _ = weval x env asn_map cc in s1 ^ " /= 0", s2 ^ " /= 0" )
+       				| x    -> let s1,s2, _, _ = weval e env asn_map cc in s1 ^ " /= 0 ", s2 ^ " /= 0 " )
+			| x -> let s1,s2, _, _ = weval x env asn_map cc in s1 ^ " /= 0 ", s2 ^ " /= 0 " )
 	    in let _,if_block1,if_block2,asn_map,_ = translate_wstmt (env,"","",asn_map,cc) if_stmt
 	    in let _,else_block1,else_block2,asn_map,_ = translate_wstmt (env,"","",asn_map,cc) else_stmt
 	    in (env, (str1^"\t\tif (" ^ s1 ^ ") then \n" ^ if_block1 ^ "\n\t\telse\n" ^ else_block1 ^ "\t\tend if;\n"),
@@ -203,8 +203,8 @@ in let wcs1, wcs2 = match wcond with
 				| Gte  -> "(("^v11^")" ^ " >= " ^ "("^v21^"))", "(("^v12^")" ^ " >= " ^ "("^v22^"))"
 				| Eq   -> "(("^v11^")" ^ " = " ^ "("^v21^"))", "(("^v12^")" ^ " = " ^ "("^v22^"))"
 				| Neq  -> "(("^v11^")" ^ " /= " ^ "("^v21^"))", "(("^v12^")" ^ " /= " ^ "("^v22^"))"
-       				| x    -> let s1, s2, _, _ = weval wcond {sens_list=[]} Im.empty curr_fc in s1 ^ " /= 0", s2 ^ " /= 0" )
-	| x -> let s1,s2, _, _ = weval x {sens_list=[]} Im.empty curr_fc in s1 ^ " /= 0", s2 ^ " /= 0"
+       				| x    -> let s1, s2, _, _ = weval wcond {sens_list=[]} Im.empty curr_fc in s1 ^ " /= 0", s2 ^ " /= 0 " )
+	| x -> let s1,s2, _, _ = weval x {sens_list=[]} Im.empty curr_fc in s1 ^ " /= 0 ", s2 ^ " /= 0 "
 
 (*Translating While loop*)
 in let rec build_while wstr str1 str2 asn_map prev_asn_map cc = function
@@ -219,8 +219,8 @@ in let rec build_while wstr str1 str2 asn_map prev_asn_map cc = function
 				| Gte  -> "(("^v11^")" ^ " >= " ^ "("^v21^"))", "(("^v12^")" ^ " >= " ^ "("^v22^"))"
 				| Eq   -> "(("^v11^")" ^ " = " ^ "("^v21^"))", "(("^v12^")" ^ " = " ^ "("^v22^"))"
 				| Neq  -> "(("^v11^")" ^ " /= " ^ "("^v21^"))", "(("^v12^")" ^ " /= " ^ "("^v22^"))"
-       				| x    -> let s1,s2, _, _ = weval en {sens_list=[]} asn_map cc in s1 ^ " /= 0", s2 ^ " /= 0" )
-			| x -> let s1,s2, _, _ = weval x {sens_list=[]} asn_map cc in s1 ^ " /= 0", s1 ^ " /= 0" )
+       				| x    -> let s1,s2, _, _ = weval en {sens_list=[]} asn_map cc in s1 ^ " /= 0 ", s2 ^ " /= 0 " )
+			| x -> let s1,s2, _, _ = weval x {sens_list=[]} asn_map cc in s1 ^ " /= 0 ", s1 ^ " /= 0 " )
 
 		       in let (_,async) = get_asn curr_asn_map
 		       in let sync = get_nc_asn curr_asn_map asn_map
@@ -605,7 +605,7 @@ in {sens_list=[]},wstr,curr_asn_map,curr_cc
 	     Bus -> ss ^ (print_bus bs "" fc)
 	   | Const -> ss ^ (print_const bs "" fc)
 		(*!!PREVENT THE USER TO CALL AN ARRAY <ID>_TYPE. Maybe we want to remove '_' from ID regular expression*)
-	   | Array -> let s_type = ss ^ "type " ^ bs.name ^ "_type is array (0 to " ^ string_of_int (sz-1) ^ ") of std_logic_vector("
+	   | Array -> let s_type = "type " ^ bs.name ^ "_type is array (0 to " ^ string_of_int (sz-1) ^ ") of std_logic_vector("
 		         ^ string_of_int (bs.size-1) ^ " downto 0);\n"
 			in ss ^ s_type ^ (print_array bs "" fc)
 	   | x -> raise (Failure("There's something wrong with the type symbol table!"))

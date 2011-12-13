@@ -415,7 +415,7 @@ in {sens_list=[]},wstr,curr_asn_map,curr_cc
            in let s3 = "\t\tif (" ^ s1 ^ " = " ^ s2 ^ ") then \n"  
            in let env,if_block,asn_map,_ = translate_stmt (env,"",asn_map,cc) stmt
 		   in let env,s5,asn_map,_ = List.fold_left (translate_case s1) (env,"",asn_map,cc) tl 	
-		   in (env, (s3 ^ if_block ^ s5 ^ "\t\tend if;\n"),asn_map,cc ) )
+		   in (env, (str^s3 ^ if_block ^ s5 ^ "\t\tend if;\n"),asn_map,cc ) )
 	| While(e1,s1) -> let curr_fc,sl = (match s1 with
 					Block(sl) -> let inc_fc curr_fc = (function
 							Pos(_) -> curr_fc + 1

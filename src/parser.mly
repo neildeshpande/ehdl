@@ -116,10 +116,6 @@ stmt_list :
 { [] }
 | stmt_list stmt	{ $2 :: $1 }
 
-expr :
-  other_expr		{ $1 }
-| asn_expr		{ $1 }
-
 
 other_expr :
   NUM						{ Num($1) }

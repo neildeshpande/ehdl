@@ -140,6 +140,7 @@ other_expr :
 | other_expr XOR other_expr			{ Binop($1, Xor, $3) }
 | other_expr SHL other_expr			{ Binop($1, Shl, $3) }
 | other_expr SHR other_expr			{ Binop($1, Shr, $3) }
+| LPAREN other_expr RPAREN			{ $2 }
 
 /*No multiple assignments within the same line! a = b = c + 1 is not permitted*/
 asn_expr :

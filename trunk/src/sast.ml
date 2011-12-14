@@ -32,12 +32,11 @@ type translation_environment = {
 	scope : symbol_table; (* symbol table for vars *)
 }
 
-type function_decl = {
-  	 pout : Ast.bus list;
+type function_decl = {	pout : Ast.bus list;
 	 fid  : string;
 	 pin  : Ast.bus list;
 	 floc : translation_environment;
-     fcalls : function_decl list; (* list of other functions that are called by this function *)  
+     	 fcalls : function_decl list; (* list of other functions that are called by this function *)  
 	 fbod : s_stmt list;
 }
 
@@ -108,55 +107,20 @@ let check_and_add_local (vbus, x, t, lt, dr) (env : translation_environment) =
 (* Raise error if incompatible else return unit *)
 (*!!! WHILE WRITING THESE FUNCTIONS, CHECK THE LAST FIELD OF THE VARIABLES:
       IF TRUE RAISE "Variable <vname> has more than one driver"       !!!*)
-let check_types e1 op e2 = 32 
+let check_types e1 op e2 = 32 (*Must return also the size of the output!!!*)
+let check_basn vbus e1 = ()
+let check_subasn vbus x y e1 = ()
 let check_aasn vbus e1 e2 = ()
+let check_call env out_actuals in_actuals func_decl = ()
+let check_subbus vbus x y = ()
 let check_array_dereference  varray size e1 s1 = ()
 let check_conditional e1 t1 = ()
 let check_pos_expr e1 = ()
 let check_switchable e1 t1 = ()
-  
-let check_basn vbus e1 =
-  	let (_, t, size) = e1
-   in match t with
-     Bus -> if size <= vbus.size
-     then if vbus.async
-     then raise (Error("Variable "^vbus.name^" has more than one driver"))
-     else ()
-     else raise (Error("Bus size mismatch for "^vbus.name))
-       | _ -> raise (Error("Expected variable of type bus"))
+let check_function_params fd expr_detail_list = ()
 
-let check_subbus vbus x y =
-  if x >= 0 && y <= vbus.size && x <= y then ()
-  else raise (Error("Incorrect subbus dereference for "^vbus.name))
 
-let check_subasn vbus x y e1 = 
-  let (_, t, size) = e1
-  in match t with 
-    Bus -> let _ = check_subbus vbus x y
-           in if size <= y-x
-           then (if vbus.async
-           	then raise (Error("Variable "^vbus.name^" has more than one driver"))
-           	else ())
-           else raise (Error("Size of expression is bigger than subbus width for "^vbus.name))
-    | _ -> raise (Error("Expected variable of type bus"))
-      
-(*Must return also the size of the output!!!*)
-let check_types e1 op e2 =
-  32
-
-      
-let check_call env out_actuals in_actuals fd =
-  let _ = List.fold_left (fun l x -> match l with
-                               hd::tl -> let _ = check_basn x hd in tl
-                            | [] -> []) out_actuals fd.pout
-  in let _ = List.fold_left (fun l x -> match l with
-                               hd::tl -> let _ = check_basn x hd in tl
-                            | [] -> []) in_actuals fd.pin
-     in ()
-  
-  
-(* Check expressions *)
-(* This returns expr_detail * types * int *)
+(*Check expressions *)
 let rec chk_expr function_table env = function
 (* An integer constant: convert and return Int type *)
 	Ast.Num(v) ->
@@ -271,16 +235,14 @@ let rec chk_stmt function_table env = function
     	let func_decl = 
        		try StringMap.find fname function_table
          with Not_found -> raise (Failure ("undefined function " ^ fname))
+    in let _ = check_call env out_list in_list func_decl     
     in let inlist = List.fold_left 
-    ( fun l x -> let e1 =  chk_expr function_table env x in e1::l ) [] in_list 
+    ( fun l x -> let e1, _, _ =  chk_expr function_table env x in e1::l ) [] in_list 
     in let outlist = List.fold_left 
-    ( fun l x -> let e1 =  chk_expr function_table env x in e1::l ) [] out_list
-       in let _ = check_call env outlist inlist func_decl
-          in let outlist = List.fold_left (fun l x -> let (e1, _, _) = x in e1::l) [] outlist
-             in let inlist = List.fold_left (fun l x -> let (e1, _, _) = x in e1::l) [] inlist
-              (* Uncomment to check if Function Call is parsed *)
-              	(* in let _ = print_endline "Function Call parsed" *)
-              		in Call(func_decl, outlist, inlist)
+    ( fun l x -> let e1, _, _ =  chk_expr function_table env x in e1::l ) [] out_list
+(* Un-comment to check if Function Call is parsed *)
+	(*in let _ = print_endline "Function Call parsed"*)
+	in Call(func_decl, outlist, inlist)
 
 
 (* Function translation Ast -> Sast. Build Symbol table; parse statements*)
@@ -335,7 +297,7 @@ let func (env : translation_environment) (astfn : Ast.fdecl) tmp_ftable =
 			    fcalls = chk_calls; 
 			    fbod = chk_fbod; }           
         in let new_ftable = StringMap.add astfn.fname fobj tmp_ftable
-(* Uncomment to check if functions are added to the Function Table*)
+(* Un-comment to check if functions are added to the Function Table*)
 	in let _ = print_endline ("Added "^astfn.fname)
 	  in new_ftable
 
@@ -346,7 +308,7 @@ let prog ((constlist : Ast.gdecl list), (funclist : Ast.fdecl list)) =
     fun (gdecl : Ast.gdecl)-> 
       let Ast.Const(vbus, value) = gdecl
         in
-      let _ = check_basn vbus (Num(value), Const, bit_required value)
+      let _ = check_basn vbus value
       in (vbus, value, Const, Int_signal, true)
                           ) (List.rev constlist)
 (* Un-comment to print the list of constants name *)

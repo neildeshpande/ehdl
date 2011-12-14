@@ -91,12 +91,13 @@ in let translate_while (wcond : Sast.expr_detail) (wblock : Sast.s_stmt list) cu
     | x -> raise (Failure ("ERROR: Invalid Unary Operator ")) ) 
     | Binop(e1,op,e2) -> 
      let v11,v12,_, _ = weval e1 env asn_map cc in let v21, v22, _, _ = weval e2 env asn_map cc
+	in let opt1 = "conv_integer(" in let opt2 = ") " (*mod and div are not synthesizable*)
      in (match op with 
 	 Add  -> "(("^v11^")" ^ " + " ^ "("^v21^"))","(("^v12^")" ^ " + " ^ "("^v22^"))", env, asn_map
        | Sub  -> "(("^v11^")" ^ " - " ^ "("^v21^"))","(("^v12^")" ^ " - " ^ "("^v22^"))" , env, asn_map
        | Mul  -> "(("^v11^")" ^ " * " ^ "("^v21^"))","(("^v12^")" ^ " * " ^ "("^v22^"))"  , env, asn_map
-       | Div  -> "(("^v11^")" ^ " / " ^ "("^v21^"))","(("^v12^")" ^ " / " ^ "("^v22^"))" , env, asn_map
-       | Mod  -> "(("^v11^")" ^ "  mod " ^ "("^v21^"))","(("^v12^")" ^ "  mod " ^ "("^v22^"))" , env, asn_map
+       | Div  -> "(("^opt1^v11^opt2^")" ^ "  / " ^ "("^opt1^v21^opt2^"))","(("^v12^")" ^ "  / " ^ "("^opt1^v22^opt2^"))" , env, asn_map
+       | Mod  -> "(("^opt1^v11^opt2^")" ^ "  mod " ^ "("^opt1^v21^opt2^"))","(("^v12^")" ^ "  mod " ^ "("^opt1^v22^opt2^"))" , env, asn_map
        | Lt   -> "(("^v11^")" ^ " < " ^ "("^v21^"))","(("^v12^")" ^ " < " ^ "("^v22^"))", env, asn_map
        | Gt   -> "(("^v11^")" ^ " > " ^ "("^v21^"))","(("^v12^")" ^ " > " ^ "("^v22^"))", env, asn_map
        | Lte  -> "(("^v11^")" ^ " <= " ^ "("^v21^"))","(("^v12^")" ^ " <= " ^ "("^v22^"))", env, asn_map
@@ -333,12 +334,13 @@ in {sens_list=[]},wstr,curr_asn_map,curr_cc
     | x -> raise (Failure ("ERROR: Invalid Unary Operator ")) ), env, asn_map 
     | Binop(e1,op,e2) -> 
      let v1, env, _ = eval e1 env asn_map cc in let v2, env, _ = eval e2 env asn_map cc
+	in let opt1 = "conv_integer(" in let opt2 = ") " (*mod and div are not synthesizable*)
      in (match op with 
 	 Add  -> "(("^v1^")" ^ " + " ^ "("^v2^"))"
        | Sub  -> "(("^v1^")" ^ " - " ^ "("^v2^"))" 
        | Mul  -> "(("^v1^")" ^ " * " ^ "("^v2^"))"  
-       | Div  -> "(("^v1^")" ^ " / " ^ "("^v2^"))"   
-       | Mod  -> "(("^v1^")" ^ "  mod " ^ "("^v2^"))" 
+       | Div  -> "(("^opt1^v1^opt2^")" ^ "  / " ^ "("^opt1^v2^opt2^"))"
+       | Mod  -> "(("^opt1^v1^opt2^")" ^ "  mod " ^ "("^opt1^v2^opt2^"))"
        | Lt   -> "(("^v1^")" ^ " < " ^ "("^v2^"))"
        | Gt   -> "(("^v1^")" ^ " > " ^ "("^v2^"))"
        | Lte  -> "(("^v1^")" ^ " <= " ^ "("^v2^"))"

@@ -93,6 +93,14 @@ let rec find_variable (scope : symbol_table) name =
 
 (* Add local to Symbol Table *)
 let check_and_add_local (vbus, x, t, lt, dr) (env : translation_environment) =
+  let _ = print_endline ("Adding local " ^ vbus.name ^ " " ^ string_of_int x ^ " " ^ string_of_bool dr) in
+  if dr then ( if (x = 0) 
+  				then for i = 0 to vbus.size-1 do vbus.isAssigned.(i) <- true done
+      		   else for i = 0 to x-1 do vbus.isAssigned.(i) <- true done)
+  else if (x = 0)
+  		then (for i = 0 to vbus.size-1 do vbus.isAssigned.(i) <- false;  done)
+   else for i = 0 to x-1 do vbus.isAssigned.(i) <- false done;
+     
   let var = (vbus, x, t, lt, dr) in
 (* Un-comment to print the list of locals name *)
   (*let _ = print_endline vbus.name in*)
@@ -109,36 +117,107 @@ let check_and_add_local (vbus, x, t, lt, dr) (env : translation_environment) =
 (*!!! WHILE WRITING THESE FUNCTIONS, CHECK THE LAST FIELD OF THE VARIABLES:
       IF TRUE RAISE "Variable <vname> has more than one driver"       !!!*)
 let check_types e1 op e2 = 32 
-let check_aasn vbus e1 e2 = ()
-let check_array_dereference  varray size e1 s1 = ()
-let check_conditional e1 t1 = ()
-let check_pos_expr e1 = ()
+(* let check_conditional e1 t1 = () *)
+(* let check_pos_expr e1 = () *)
 let check_switchable e1 t1 = ()
+
+let check_array_dereference varray size e1 t1 s1 = 
+  match t1 with
+    Bus -> if s1 > bit_required(size)
+    		then raise(Error("Array index out of bound "^varray.name))
+    	  else()
+    | Const -> (
+               	match e1 with
+               		Num(v) -> if v > size
+               					then raise(Error("Array index out of bound "^varray.name))
+      						  else()
+    				| _ -> raise (Error("Const expected "^varray.name))
+                )
+    | _ -> raise (Error("Bus or Const expected "^varray.name))
+    
   
 let check_basn vbus e1 =
-  	let (_, t, size) = e1
+  let _ = print_endline ("Checking variable "^vbus.name) in
+  	let (detail, t, size) = e1
    in match t with
      Bus -> if size <= vbus.size
-     then if vbus.async
-     then raise (Error("Variable "^vbus.name^" has more than one driver"))
-     else ()
+     then for i = 0 to vbus.size-1 do 
+       								print_endline ("Checking bit " ^ string_of_int i);
+       								if vbus.isAssigned.(i)
+     								then raise (Error("Variable "^vbus.name^" has more than one driver"))
+     								else vbus.isAssigned.(i) <- true done
+     
      else raise (Error("Bus size mismatch for "^vbus.name))
-       | _ -> raise (Error("Expected variable of type bus"))
+       | Const -> (for i = 0 to vbus.size-1 do if vbus.isAssigned.(i)
+     								then raise (Error("Variable "^vbus.name^" has more than one driver"))
+     								else vbus.isAssigned.(i) <- true done;
+         
+         			match detail with
+         				Num(v) -> if (bit_required v) > vbus.size
+             						then raise(Error("size mismatch "^vbus.name))
+             					else()
+                    	|_ -> raise (Error("Const expected "^vbus.name))
+             )
+       | _ -> raise (Error("Expected variable of type bus or const "^vbus.name))
+  
+         
+let check_aasn vbus size e1 e2 = 
+  let(detail_e1,t_e1, size_e1) = e1
+  in match t_e1 with
+      Const -> 
+    			(match detail_e1 with
+         
+         			Num(v) -> if v > size 
+            						then raise(Error("Array index out of bound "^vbus.name)) 
+            					else() ;
+         					  if vbus.isAssigned.(v)
+            					then raise (Error("Array index has more than one driver "^vbus.name))
+          					  else vbus.isAssigned.(v) <- true;
+    						  let (_,t_e2, size_e2) = e2
+       						  in if size_e2 > vbus.size
+       				 			then raise(Error("Bus size mismatch for "^vbus.name))
+           					  else ()
+             		| _ -> raise(Error("Expected const")))
+      | Bus -> if(size_e1 > bit_required size)
+               	then raise (Error("Array Index out of bound "^vbus.name))
+               else();
+               for i = 0 to size-1 do if vbus.isAssigned.(i)
+      										then raise (Error("Array index has more than one driver "^vbus.name))
+                					else vbus.isAssigned.(i) <- true done ; 
+        		let (_,t_e2,size_e2) = e2
+        		in if size_e2 > vbus.size
+        			then raise (Error("Bus size mismatch for "^vbus.name))
+        		   else()
+                  			
+      | _ -> raise (Error("Array index should be const or bus "^vbus.name)) 
+  
+    
 
 let check_subbus vbus x y =
   if x >= 0 && y <= vbus.size && x <= y then ()
   else raise (Error("Incorrect subbus dereference for "^vbus.name))
 
 let check_subasn vbus x y e1 = 
-  let (_, t, size) = e1
+  let (detail, t, size) = e1
   in match t with 
     Bus -> let _ = check_subbus vbus x y
-           in if size <= y-x
-           then (if vbus.async
-           	then raise (Error("Variable "^vbus.name^" has more than one driver"))
-           	else ())
+           in if size <= y-x+1
+           then for i = x to y do if vbus.isAssigned.(i)
+           						then raise (Error("Variable "^vbus.name^" has more than one driver"))
+                 				else vbus.isAssigned.(i) <- true done
            else raise (Error("Size of expression is bigger than subbus width for "^vbus.name))
-    | _ -> raise (Error("Expected variable of type bus"))
+    | Const -> (let _ = check_subbus vbus x y
+                in let _ = match detail with
+                 			Num(v) -> if(bit_required v) > y-x+1
+                 						then raise (Error("Size of expression is bigger than subbus width for "^vbus.name))
+                     		  		else ()
+                    		| _ -> raise (Error("Const expected"))
+                      in  
+           		 		for i = x to y do if vbus.isAssigned.(i)
+           						then raise (Error("Variable "^vbus.name^" has more than one driver"))
+                 		else vbus.isAssigned.(i) <- true done
+               )
+      | _ -> raise (Error("Expected variable of type bus "^vbus.name))
       
 (*Must return also the size of the output!!!*)
 let check_types e1 op e2 =
@@ -192,7 +271,7 @@ let rec chk_expr function_table env = function
 		let e1 = chk_expr function_table env e1
   		and e2 = chk_expr function_table env e2
   		and vbus, size, _, _, _ = find_variable env.scope vname
-    	in let _ = check_aasn vbus e1 e2
+    in let _ = check_aasn vbus size e1 e2
 	in let (e1, _, _) = e1 and (e2, _, _) = e2
     	in Aasn(vbus, size, e1, e2), Bus, vbus.size
   (* NEED TO CHECK OUTPUT PORTS MATCH WITH LOCALS ASSIGNMENT!!!*)
@@ -206,7 +285,7 @@ let rec chk_expr function_table env = function
   | Ast.Barray(vname, e1) ->
     	let (e1, t1, s1) = chk_expr function_table env e1
      and varray, size, vtype, _, _ = find_variable env.scope vname
-     in check_array_dereference varray size e1 s1;
+     in check_array_dereference varray size e1 t1 s1;
     Barray(varray, size, e1), vtype, varray.size (*Be careful!!! A reference to array a[i] returns always a varray type!*)
   | Ast.Noexpr -> Noexpr, Void, 0
 
@@ -216,21 +295,21 @@ let rec chk_stmt function_table env = function
     Ast.Expr(e) -> Expr(chk_expr function_table env e)
   | Ast.If(e1, s1, s2) ->
     	let e1, t1, _ = chk_expr function_table env e1
-     in check_conditional e1 t1;
+     in (* check_conditional e1 t1; *)
     If(e1, chk_stmt function_table env s1, chk_stmt function_table env s2)
   | Ast.For(e1, e2, e3, s1) ->
     	let e1, t1, _= chk_expr function_table env e1
      	and e2, t2, _= chk_expr function_table env e2
      	and e3, t3, _= chk_expr function_table env e3
-      in check_conditional e1 t1;
+      in (* check_conditional e1 t1;*)
     For(e1, e2, e3, chk_stmt function_table env s1)
   | Ast.While(e1, s1) ->
     	let e1, t1, _= chk_expr function_table env e1
-     	in check_conditional e1 t1;
+     in (* check_conditional e1 t1;*)
     	While(e1, chk_stmt function_table env s1)
   | Ast.Pos(e1) ->
     	let e1, t1, _= chk_expr function_table env e1
-     	in check_pos_expr e1;
+     in (* check_pos_expr e1;*)
     	Pos(e1)
   | Ast.Block(slist) ->
     	(*(* New scopes: parent is the existing scope, start out empty *)
@@ -254,7 +333,7 @@ let rec chk_stmt function_table env = function
   | Ast.Switch(e, caselist) ->
     	let e, t1, _ = chk_expr function_table env e
      	in let _ = check_switchable e t1
-	in let chk_case_list (env : translation_environment) ( (e1, s1) : (Ast.expr * Ast.stmt) ) =
+         in let chk_case_list (env : translation_environment) ( (e1, s1) : (Ast.expr * Ast.stmt) ) =
             let e1, _, _ = chk_expr function_table env e1
             in let s1 = chk_stmt function_table env s1
 	    in (e1, s1)
@@ -341,7 +420,8 @@ let func (env : translation_environment) (astfn : Ast.fdecl) tmp_ftable =
 
 
 (* Program transaltion Ast -> Sast *)
-let prog ((constlist : Ast.gdecl list), (funclist : Ast.fdecl list)) = 
+let prog ((constlist : Ast.gdecl list), (funclist : Ast.fdecl list)) =
+  let _ = print_endline "Starting prog..." in
   let clist = List.map (
     fun (gdecl : Ast.gdecl)-> 
       let Ast.Const(vbus, value) = gdecl
@@ -361,5 +441,3 @@ in let _ = List.iter print_endline name_list*)
 							in create_map new_mymap tl
 	   in let ftable = create_map StringMap.empty (List.rev funclist)
 		in global_env, ftable
-
-

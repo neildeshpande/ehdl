@@ -156,7 +156,7 @@ let check_array_dereference varray size e1 t1 s1 =
     | _ -> raise (Error("Bus or Const expected "^varray.name))
     
   
-let check_basn vbus e1 =
+let check_basn env vbus e1 =
   let _ = print_endline ("Checking variable "^vbus.name) in
   
   	let (detail, t, size) = e1
@@ -164,12 +164,12 @@ let check_basn vbus e1 =
      Bus -> if size <= vbus.size
      then for i = 0 to vbus.size-1 do 
        								(* print_endline ("Checking bit " ^ string_of_int i); *)
-       								if vbus.isAssigned.(i)
+       								if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
      								then raise (Error("Variable "^vbus.name^" has more than one driver"))
      								else vbus.isAssigned.(i) <- true done
      
      else raise (Error("Bus size mismatch for "^vbus.name))
-       | Const -> (for i = 0 to vbus.size-1 do if vbus.isAssigned.(i)
+       | Const -> (for i = 0 to vbus.size-1 do if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
      								then raise (Error("Variable "^vbus.name^" has more than one driver"))
      								else vbus.isAssigned.(i) <- true done;
          
@@ -182,7 +182,7 @@ let check_basn vbus e1 =
        | _ -> raise (Error("Expected variable of type bus or const "^vbus.name))
   
          
-let check_aasn vbus size e1 e2 = 
+let check_aasn env vbus size e1 e2 = 
   let(detail_e1,t_e1, size_e1) = e1
   in match t_e1 with
       Const -> 
@@ -191,7 +191,7 @@ let check_aasn vbus size e1 e2 =
          			Num(v) -> if v > size 
             						then raise(Error("Array index out of bound "^vbus.name)) 
             					else() ;
-         					  if vbus.isAssigned.(v)
+         					  if (vbus.isAssigned.(v) && not(env.scope.isWhile.(0)))
             					then raise (Error("Array index has more than one driver "^vbus.name))
           					  else vbus.isAssigned.(v) <- true;
     						  let (_,t_e2, size_e2) = e2
@@ -202,7 +202,7 @@ let check_aasn vbus size e1 e2 =
       | Bus -> if(size_e1 > bit_required size)
                	then raise (Error("Array Index out of bound "^vbus.name))
                else();
-               for i = 0 to size-1 do if vbus.isAssigned.(i)
+               for i = 0 to size-1 do if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
       										then raise (Error("Array index has more than one driver "^vbus.name))
                 					else vbus.isAssigned.(i) <- true done ; 
         		let (_,t_e2,size_e2) = e2
@@ -218,12 +218,12 @@ let check_subbus vbus x y =
   if x >= 0 && y <= vbus.size && x <= y then ()
   else raise (Error("Incorrect subbus dereference for "^vbus.name))
 
-let check_subasn vbus x y e1 = 
+let check_subasn env vbus x y e1 = 
   let (detail, t, size) = e1
   in match t with 
     Bus -> let _ = check_subbus vbus x y
            in if size <= y-x+1
-           then for i = x to y do if vbus.isAssigned.(i)
+           then for i = x to y do if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
            						then raise (Error("Variable "^vbus.name^" has more than one driver"))
                  				else vbus.isAssigned.(i) <- true done
            else raise (Error("Size of expression is bigger than subbus width for "^vbus.name))
@@ -234,7 +234,7 @@ let check_subasn vbus x y e1 =
                      		  		else ()
                     		| _ -> raise (Error("Const expected"))
                       in  
-           		 		for i = x to y do if vbus.isAssigned.(i)
+           		 		for i = x to y do if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
            						then raise (Error("Variable "^vbus.name^" has more than one driver"))
                  		else vbus.isAssigned.(i) <- true done
                )
@@ -261,7 +261,7 @@ let check_function_outvars env e vbus2 =
                     in
         				if vbus1.size >= vbus2.size then 
 								let _ = (for i = 0 to vbus1.size-1 
-             								do if vbus1.isAssigned.(i)
+             								do if (vbus1.isAssigned.(i) && not(env.scope.isWhile.(0)))
                    								then raise(Error("Bus "^vbus1.name^" has more than one driver"))
                          					   else vbus1.isAssigned.(i) <- true done) in true
   						else raise(Error("Function output variable width mismatch "^vbus1.name^" "^vbus2.name))
@@ -269,7 +269,7 @@ let check_function_outvars env e vbus2 =
       		| Subbus(vbus,x,y) -> (
                               if(vbus2.size <= y-x+1)
                               then (let _ = (for i = x to y
-                                            do if vbus.isAssigned.(i)
+                                            do if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
                                             then raise (Error("Variable "^vbus.name^" has more than one driver"))
                                             else (vbus.isAssigned.(i) <- true) done) in true)
                               else raise (Error("Size mismatch in function output assignment "^vbus.name))
@@ -282,7 +282,7 @@ let check_function_outvars env e vbus2 =
                             			else let _ =
                             						( match exd with
                              								Num(idx) -> (
-                                         									if vbus.isAssigned.(idx)
+                                         									if (vbus.isAssigned.(idx) && not(env.scope.isWhile.(0)))
                                          									then raise (Error("variable "^vbus.name^" has more than one driver"))
                                          									else if vbus.size < vbus2.size
                                                   							then raise (Error("Size mismatch in function output assignment "^vbus.name))
@@ -290,7 +290,7 @@ let check_function_outvars env e vbus2 =
                                        								) 
                            								| _ -> (
                                             						for i = 0 to vbus.size-1
-                                              					do if vbus.isAssigned.(i)
+                                              					do if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
                                                    					then raise (Error("Variable "^vbus.name^" has more than one driver"))
                                               						else (vbus.isAssigned.(i) <- true)
                                                    				done
@@ -357,20 +357,20 @@ let rec chk_expr function_table env = function
     	let _ = print_endline ("Checking bus assignment for "^vname) in
 		let e1 = chk_expr function_table env e1
   and vbus, _, _, _, _ = find_variable env.scope vname
-    	in let _ = check_basn vbus e1
+  in let _ = check_basn env vbus e1
 	in let (e1, _, _) = e1
 	in Basn(vbus, e1), Bus, vbus.size
   | Ast.Subasn(vname, x, y, e1) ->
 	let e1 = chk_expr function_table env e1
   and vbus, _, _, _, _ = find_variable env.scope vname
-	in let _ = check_subasn vbus x y e1
+  in let _ = check_subasn env vbus x y e1
 	in let (e1, _, _) = e1
 	in Subasn(vbus, x, y, e1), Bus, (abs(x-y) +1);
   | Ast.Aasn(vname, e1, e2) ->
 		let e1 = chk_expr function_table env e1
   		and e2 = chk_expr function_table env e2
   		and vbus, size, _, _, _ = find_variable env.scope vname
-    in let _ = check_aasn vbus size e1 e2
+    in let _ = check_aasn env vbus size e1 e2
 	in let (e1, _, _) = e1 and (e2, _, _) = e2
     	in Aasn(vbus, size, e1, e2), Bus, vbus.size
   (* NEED TO CHECK OUTPUT PORTS MATCH WITH LOCALS ASSIGNMENT!!!*)
@@ -544,11 +544,13 @@ let prog ((constlist : Ast.gdecl list), (funclist : Ast.fdecl list)) =
   let clist = List.map (
     fun (gdecl : Ast.gdecl)-> 
       let Ast.Const(vbus, value) = gdecl
+      in
+      let dummy_env = {scope = { parent = None; variables = []; isIf = Array.make 2 false; isWhile = Array.make 1 false}} (*Workaround for while/if multiple assignment *)
         in
-      let _ = check_basn vbus (Num(value), Const, bit_required value)
+      let _ = check_basn dummy_env vbus (Num(value), Const, bit_required value)
       in (vbus, value, Const, Int_signal, true)
                           ) (List.rev constlist)
-(* Un-comment to print the list of constants name *)
+(* Un-commeList.rev clistList.rev clistnt to print the list of constants name *)
 (*in let name_list = List.map (fun (sgnl,_,_,_) -> sgnl.name) clist
 in let _ = List.iter print_endline name_list*)
   in let global_scope = { parent = None; variables = List.rev clist; isIf = Array.make 2 false; isWhile = Array.make 1 false}

@@ -390,7 +390,16 @@ let rec chk_expr function_table env = function
     Barray(varray, size, e1), vtype, varray.size (*Be careful!!! A reference to array a[i] returns always a varray type!*)
   | Ast.Noexpr -> Noexpr, Void, 0
 
-
+let helper_isAssigned_swap isAssigned_1 isAssigned_2 =
+  let _ =
+  		for i = 0 to (Array.length isAssigned_1)-1
+      	do
+			(let temp = isAssigned_1.(i) in
+ 				isAssigned_1.(i) <- isAssigned_2.(i);
+  				isAssigned_2.(i) <- temp ) 
+  		done 
+in ()
+    
 (*Check Statements*)
 let rec chk_stmt function_table env = function
     Ast.Expr(e) -> Expr(chk_expr function_table env e)

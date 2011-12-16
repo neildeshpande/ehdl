@@ -25,7 +25,9 @@ type types =
 (* Covers both buses and array, out of bounds exceptions should done at run time *)
 type symbol_table = {
   parent : symbol_table option;
-  variables : (Ast.bus * int * types * local_t * bool) list
+  variables : (Ast.bus * int * types * local_t * bool) list;
+  isIf : bool array;
+  isWhile : bool array
                     }
 
 type translation_environment = {
@@ -107,7 +109,7 @@ let check_and_add_local (vbus, x, t, lt, dr) (env : translation_environment) =
   if List.exists (fun (varbus, _, _, _, _) -> varbus.name = vbus.name) env.scope.variables
   then raise (Error("Multiple declarations for " ^ vbus.name))
   else let new_scope = { parent = env.scope.parent;
-		         variables = var :: env.scope.variables; }
+		         variables = var :: env.scope.variables; isIf = env.scope.isIf; isWhile = env.scope.isWhile}
   in let new_env = { scope = new_scope;}
        in  new_env
 
@@ -403,9 +405,12 @@ let rec chk_stmt function_table env = function
       in (* check_conditional e1 t1;*)
     For(e1, e2, e3, chk_stmt function_table env s1)
   | Ast.While(e1, s1) ->
+    	let _ = env.scope.isWhile.(0) <- true in
     	let e1, t1, _= chk_expr function_table env e1
      in (* check_conditional e1 t1;*)
-    	While(e1, chk_stmt function_table env s1)
+    	let statement = chk_stmt function_table env s1
+     in let _ = env.scope.isWhile.(0) <- false in
+    	While(e1, statement)
   | Ast.Pos(e1) ->
     	let e1, t1, _= chk_expr function_table env e1
      in (* check_pos_expr e1;*)
@@ -518,7 +523,7 @@ let check_func (env : translation_environment) (portin : (Ast.bus list)) (portou
 
 (* Function table *)
 let func (env : translation_environment) (astfn : Ast.fdecl) tmp_ftable =
-  let func_scope = { parent = Some(env.scope); variables = [] }
+  let func_scope = { parent = Some(env.scope); variables = []; isIf = Array.make 2 false; isWhile = Array.make 1 false }
   in let func_env = {scope = func_scope }
     in let (chk_floc, chk_calls, chk_fbod) = check_func func_env astfn.portin astfn.portout astfn.body tmp_ftable
      in let fobj = {	pout = astfn.portout;
@@ -546,7 +551,7 @@ let prog ((constlist : Ast.gdecl list), (funclist : Ast.fdecl list)) =
 (* Un-comment to print the list of constants name *)
 (*in let name_list = List.map (fun (sgnl,_,_,_) -> sgnl.name) clist
 in let _ = List.iter print_endline name_list*)
-     in let global_scope = { parent = None; variables = List.rev clist}
+  in let global_scope = { parent = None; variables = List.rev clist; isIf = Array.make 2 false; isWhile = Array.make 1 false}
         in let global_env = { scope = global_scope }
 
 	   in let rec create_map mymap = function

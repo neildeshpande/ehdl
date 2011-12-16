@@ -91,12 +91,13 @@ in let translate_while (wcond : Sast.expr_detail) (wblock : Sast.s_stmt list) cu
     | x -> raise (Failure ("ERROR: Invalid Unary Operator ")) ) 
     | Binop(e1,op,e2) -> 
      let v11,v12,_, _ = weval e1 env asn_map cc in let v21, v22, _, _ = weval e2 env asn_map cc
+	in let opt1 = "conv_integer(" in let opt2 = ") " (*mod and div are not synthesizable*)
      in (match op with 
 	 Add  -> "(("^v11^")" ^ " + " ^ "("^v21^"))","(("^v12^")" ^ " + " ^ "("^v22^"))", env, asn_map
        | Sub  -> "(("^v11^")" ^ " - " ^ "("^v21^"))","(("^v12^")" ^ " - " ^ "("^v22^"))" , env, asn_map
        | Mul  -> "(("^v11^")" ^ " * " ^ "("^v21^"))","(("^v12^")" ^ " * " ^ "("^v22^"))"  , env, asn_map
-       | Div  -> "(("^v11^")" ^ " / " ^ "("^v21^"))","(("^v12^")" ^ " / " ^ "("^v22^"))" , env, asn_map
-       | Mod  -> "(("^v11^")" ^ "  mod " ^ "("^v21^"))","(("^v12^")" ^ "  mod " ^ "("^v22^"))" , env, asn_map
+       | Div  -> "(("^opt1^v11^opt2^")" ^ "  / " ^ "("^opt1^v21^opt2^"))","(("^v12^")" ^ "  / " ^ "("^opt1^v22^opt2^"))" , env, asn_map
+       | Mod  -> "(("^opt1^v11^opt2^")" ^ "  mod " ^ "("^opt1^v21^opt2^"))","(("^v12^")" ^ "  mod " ^ "("^opt1^v22^opt2^"))" , env, asn_map
        | Lt   -> "(("^v11^")" ^ " < " ^ "("^v21^"))","(("^v12^")" ^ " < " ^ "("^v22^"))", env, asn_map
        | Gt   -> "(("^v11^")" ^ " > " ^ "("^v21^"))","(("^v12^")" ^ " > " ^ "("^v22^"))", env, asn_map
        | Lte  -> "(("^v11^")" ^ " <= " ^ "("^v21^"))","(("^v12^")" ^ " <= " ^ "("^v22^"))", env, asn_map
@@ -164,8 +165,8 @@ in let translate_while (wcond : Sast.expr_detail) (wblock : Sast.s_stmt list) cu
 				| Gte  -> "(("^v11^")" ^ " >= " ^ "("^v21^"))", "(("^v12^")" ^ " >= " ^ "("^v22^"))"
 				| Eq   -> "(("^v11^")" ^ " = " ^ "("^v21^"))", "(("^v12^")" ^ " = " ^ "("^v22^"))"
 				| Neq  -> "(("^v11^")" ^ " /= " ^ "("^v21^"))", "(("^v12^")" ^ " /= " ^ "("^v22^"))"
-       				| x    -> let s1,s2, _, _ = weval e env asn_map cc in s1 ^ " /= 0", s2 ^ " /= 0" )
-			| x -> let s1,s2, _, _ = weval x env asn_map cc in s1 ^ " /= 0", s2 ^ " /= 0" )
+       				| x    -> let s1,s2, _, _ = weval e env asn_map cc in s1 ^ " /= 0 ", s2 ^ " /= 0 " )
+			| x -> let s1,s2, _, _ = weval x env asn_map cc in s1 ^ " /= 0 ", s2 ^ " /= 0 " )
 	    in let _,if_block1,if_block2,asn_map,_ = translate_wstmt (env,"","",asn_map,cc) if_stmt
 	    in let _,else_block1,else_block2,asn_map,_ = translate_wstmt (env,"","",asn_map,cc) else_stmt
 	    in (env, (str1^"\t\tif (" ^ s1 ^ ") then \n" ^ if_block1 ^ "\n\t\telse\n" ^ else_block1 ^ "\t\tend if;\n"),
@@ -203,8 +204,8 @@ in let wcs1, wcs2 = match wcond with
 				| Gte  -> "(("^v11^")" ^ " >= " ^ "("^v21^"))", "(("^v12^")" ^ " >= " ^ "("^v22^"))"
 				| Eq   -> "(("^v11^")" ^ " = " ^ "("^v21^"))", "(("^v12^")" ^ " = " ^ "("^v22^"))"
 				| Neq  -> "(("^v11^")" ^ " /= " ^ "("^v21^"))", "(("^v12^")" ^ " /= " ^ "("^v22^"))"
-       				| x    -> let s1, s2, _, _ = weval wcond {sens_list=[]} Im.empty curr_fc in s1 ^ " /= 0", s2 ^ " /= 0" )
-	| x -> let s1,s2, _, _ = weval x {sens_list=[]} Im.empty curr_fc in s1 ^ " /= 0", s2 ^ " /= 0"
+       				| x    -> let s1, s2, _, _ = weval wcond {sens_list=[]} Im.empty curr_fc in s1 ^ " /= 0", s2 ^ " /= 0 " )
+	| x -> let s1,s2, _, _ = weval x {sens_list=[]} Im.empty curr_fc in s1 ^ " /= 0 ", s2 ^ " /= 0 "
 
 (*Translating While loop*)
 in let rec build_while wstr str1 str2 asn_map prev_asn_map cc = function
@@ -219,8 +220,8 @@ in let rec build_while wstr str1 str2 asn_map prev_asn_map cc = function
 				| Gte  -> "(("^v11^")" ^ " >= " ^ "("^v21^"))", "(("^v12^")" ^ " >= " ^ "("^v22^"))"
 				| Eq   -> "(("^v11^")" ^ " = " ^ "("^v21^"))", "(("^v12^")" ^ " = " ^ "("^v22^"))"
 				| Neq  -> "(("^v11^")" ^ " /= " ^ "("^v21^"))", "(("^v12^")" ^ " /= " ^ "("^v22^"))"
-       				| x    -> let s1,s2, _, _ = weval en {sens_list=[]} asn_map cc in s1 ^ " /= 0", s2 ^ " /= 0" )
-			| x -> let s1,s2, _, _ = weval x {sens_list=[]} asn_map cc in s1 ^ " /= 0", s1 ^ " /= 0" )
+       				| x    -> let s1,s2, _, _ = weval en {sens_list=[]} asn_map cc in s1 ^ " /= 0 ", s2 ^ " /= 0 " )
+			| x -> let s1,s2, _, _ = weval x {sens_list=[]} asn_map cc in s1 ^ " /= 0 ", s1 ^ " /= 0 " )
 
 		       in let (_,async) = get_asn curr_asn_map
 		       in let sync = get_nc_asn curr_asn_map asn_map
@@ -333,12 +334,13 @@ in {sens_list=[]},wstr,curr_asn_map,curr_cc
     | x -> raise (Failure ("ERROR: Invalid Unary Operator ")) ), env, asn_map 
     | Binop(e1,op,e2) -> 
      let v1, env, _ = eval e1 env asn_map cc in let v2, env, _ = eval e2 env asn_map cc
+	in let opt1 = "conv_integer(" in let opt2 = ") " (*mod and div are not synthesizable*)
      in (match op with 
 	 Add  -> "(("^v1^")" ^ " + " ^ "("^v2^"))"
        | Sub  -> "(("^v1^")" ^ " - " ^ "("^v2^"))" 
        | Mul  -> "(("^v1^")" ^ " * " ^ "("^v2^"))"  
-       | Div  -> "(("^v1^")" ^ " / " ^ "("^v2^"))"   
-       | Mod  -> "(("^v1^")" ^ "  mod " ^ "("^v2^"))" 
+       | Div  -> "(("^opt1^v1^opt2^")" ^ "  / " ^ "("^opt1^v2^opt2^"))"
+       | Mod  -> "(("^opt1^v1^opt2^")" ^ "  mod " ^ "("^opt1^v2^opt2^"))"
        | Lt   -> "(("^v1^")" ^ " < " ^ "("^v2^"))"
        | Gt   -> "(("^v1^")" ^ " > " ^ "("^v2^"))"
        | Lte  -> "(("^v1^")" ^ " <= " ^ "("^v2^"))"
@@ -401,7 +403,7 @@ in {sens_list=[]},wstr,curr_asn_map,curr_cc
 			| x -> let s, env, _ = eval x env asn_map cc in s ^ " /= 0", env )
 	    in let env,if_block,asn_map,_ = translate_stmt (env,"",asn_map,cc) if_stmt
 	    in let env,else_block,asn_map,_ = translate_stmt (env,"",asn_map,cc) else_stmt
-	    in (env, ("\t\tif (" ^ s ^ ") then \n" ^ if_block 
+	    in (env, (str^"\t\tif (" ^ s ^ ") then \n" ^ if_block 
 	    (* the tabbing needs to be done programmatically, not manually. 
 	    I am assuming SAST will tell us the nesting depth *)    
 	    ^ "\n\t\telse\n" ^ else_block ^ "\t\tend if;\n"), asn_map,cc)
@@ -415,7 +417,7 @@ in {sens_list=[]},wstr,curr_asn_map,curr_cc
            in let s3 = "\t\tif (" ^ s1 ^ " = " ^ s2 ^ ") then \n"  
            in let env,if_block,asn_map,_ = translate_stmt (env,"",asn_map,cc) stmt
 		   in let env,s5,asn_map,_ = List.fold_left (translate_case s1) (env,"",asn_map,cc) tl 	
-		   in (env, (s3 ^ if_block ^ s5 ^ "\t\tend if;\n"),asn_map,cc ) )
+		   in (env, (str^s3 ^ if_block ^ s5 ^ "\t\tend if;\n"),asn_map,cc ) )
 	| While(e1,s1) -> let curr_fc,sl = (match s1 with
 					Block(sl) -> let inc_fc curr_fc = (function
 							Pos(_) -> curr_fc + 1
@@ -605,7 +607,7 @@ in {sens_list=[]},wstr,curr_asn_map,curr_cc
 	     Bus -> ss ^ (print_bus bs "" fc)
 	   | Const -> ss ^ (print_const bs "" fc)
 		(*!!PREVENT THE USER TO CALL AN ARRAY <ID>_TYPE. Maybe we want to remove '_' from ID regular expression*)
-	   | Array -> let s_type = ss ^ "type " ^ bs.name ^ "_type is array (0 to " ^ string_of_int (sz-1) ^ ") of std_logic_vector("
+	   | Array -> let s_type = "type " ^ bs.name ^ "_type is array (0 to " ^ string_of_int (sz-1) ^ ") of std_logic_vector("
 		         ^ string_of_int (bs.size-1) ^ " downto 0);\n"
 			in ss ^ s_type ^ (print_array bs "" fc)
 	   | x -> raise (Failure("There's something wrong with the type symbol table!"))

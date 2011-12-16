@@ -53,7 +53,6 @@ rule token = parse
 | "switch" 				{ SWITCH }
 | "case"				{ CASE }
 | "default"             		{ DEFAULT }
-| "|" 					{ C_OR }
 | "POS"					{ POS }
 | "ASYNC"				{ ASYNC }
 | ['a'-'z''A'-'Z'] ['a'-'z' 'A'-'Z' '_' '0'-'9']* as lit  { ID(lit) }

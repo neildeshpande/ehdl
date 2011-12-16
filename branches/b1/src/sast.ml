@@ -241,11 +241,12 @@ let check_subasn env vbus x y e1 =
       | _ -> raise (Error("Expected variable of type bus "^vbus.name))
       
 
-let pred (ed,t,sz) =
-  match ed with
-  Id(v) -> let _ = print_endline ("Checking param: " ^v) in true
-      | _ -> let _ = print_endline "For everything else... there's mastercard" in true
-      
+let pred (b,_,_,_,_) (b',_,_,_,_) =
+  		let _ =
+                for i=0 to ((Array.length b.isAssigned) - 1) do
+                        b.isAssigned.(i) <- b'.isAssigned.(i) || b.isAssigned.(i)
+                done
+        in true      
         
 let check_function_outvars env e vbus2 =
   let (ed, t,sz) = e
@@ -389,16 +390,6 @@ let rec chk_expr function_table env = function
      in check_array_dereference varray size e1 t1 s1;
     Barray(varray, size, e1), vtype, varray.size (*Be careful!!! A reference to array a[i] returns always a varray type!*)
   | Ast.Noexpr -> Noexpr, Void, 0
-
-let helper_isAssigned_swap isAssigned_1 isAssigned_2 =
-  let _ =
-  		for i = 0 to (Array.length isAssigned_1)-1
-      	do
-			(let temp = isAssigned_1.(i) in
- 				isAssigned_1.(i) <- isAssigned_2.(i);
-  				isAssigned_2.(i) <- temp ) 
-  		done 
-in ()
     
 (*Check Statements*)
 let rec chk_stmt function_table env = function
@@ -406,7 +397,21 @@ let rec chk_stmt function_table env = function
   | Ast.If(e1, s1, s2) ->
     	let e1, t1, _ = chk_expr function_table env e1
      in (* check_conditional e1 t1; *)
-    If(e1, chk_stmt function_table env s1, chk_stmt function_table env s2)
+    let temp = { env with scope =
+                 { env.scope with
+                        variables = List.map (
+                                fun (b, s, t, l, f) ->
+                                        ( { b with isAssigned =
+                                                Array.copy b.isAssigned },
+                                         s, t, l, f )
+                                ) env.scope.variables
+                }
+        }
+    in let stmt_1 = chk_stmt function_table temp s1
+       in
+    let stmt_2 = chk_stmt function_table env s2
+    in let _ = List.for_all2 pred (env.scope.variables) (temp.scope.variables)
+      in If(e1,  stmt_1, stmt_2)
   | Ast.For(e1, e2, e3, s1) ->
     	let e1, t1, _= chk_expr function_table env e1
      	and e2, t2, _= chk_expr function_table env e2

@@ -397,7 +397,7 @@ let rec chk_stmt function_table env = function
   | Ast.If(e1, s1, s2) ->
     	let e1, t1, _ = chk_expr function_table env e1
      in (* check_conditional e1 t1; *)
-    let temp = { env with scope =
+    let temp = { scope =
                  { env.scope with
                         variables = List.map (
                                 fun (b, s, t, l, f) ->

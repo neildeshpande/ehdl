@@ -4,7 +4,7 @@
 %token OR AND XOR SHL SHR NOT
 %token IF ELSE WHILE FOR
 %token ASN SEMI LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE COMMA CONST
-%token SWITCH CASE DEFAULT C_OR COLON POS ASYNC EOF
+%token SWITCH CASE DEFAULT COLON POS ASYNC EOF
 %token <int> NUM INT UINT
 %token <string> ID
 
@@ -103,23 +103,20 @@ adecl :
 
 stmt :
   LBRACE stmt_list RBRACE			{ Block(List.rev $2) }
-| expr SEMI              			{ Expr($1) }
+| asn_expr SEMI              			{ Expr($1) }
 | POS LPAREN other_expr RPAREN SEMI			{ Pos($3) } 
 | IF LPAREN other_expr RPAREN stmt %prec NOELSE 	{ If($3, $5, Block([]))}
 | IF LPAREN other_expr RPAREN stmt ELSE stmt    	{ If($3,$5,$7) }
 | FOR LPAREN asn_expr SEMI other_expr SEMI other_expr RPAREN stmt  { For($3,$5,$7,$9) }
 | WHILE LPAREN other_expr RPAREN stmt			{ While($3, $5) }
-| SWITCH LPAREN other_expr RPAREN LBRACE case_stmt case_list RBRACE{ Switch($3,$6::(List.rev $7)) } /* Enforcing at least one case_stmt in the parser so no need to do it later */ 
+| SWITCH LPAREN other_expr RPAREN LBRACE case_stmt case_list RBRACE{ Switch($3,$6::(List.rev $7)) }
+/* Enforcing at least one case_stmt in the parser so no need to do it later */ 
 | LPAREN actuals_list RPAREN ASN ID LPAREN actuals_list RPAREN SEMI	{ Call($5, (List.rev $2), (List.rev $7)) }
 
 
 stmt_list :
 { [] }
 | stmt_list stmt	{ $2 :: $1 }
-
-expr :
-  other_expr		{ $1 }
-| asn_expr		{ $1 }
 
 
 other_expr :
@@ -145,6 +142,7 @@ other_expr :
 | other_expr XOR other_expr			{ Binop($1, Xor, $3) }
 | other_expr SHL other_expr			{ Binop($1, Shl, $3) }
 | other_expr SHR other_expr			{ Binop($1, Shr, $3) }
+| LPAREN other_expr RPAREN			{ $2 }
 
 /*No multiple assignments within the same line! a = b = c + 1 is not permitted*/
 asn_expr :

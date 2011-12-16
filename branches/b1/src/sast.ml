@@ -112,15 +112,33 @@ let check_and_add_local (vbus, x, t, lt, dr) (env : translation_environment) =
        in  new_env
 
 
-(* Check type compatibility of e1 and e2 for the given op *)
-(* Raise error if incompatible else return unit *)
-(*!!! WHILE WRITING THESE FUNCTIONS, CHECK THE LAST FIELD OF THE VARIABLES:
-      IF TRUE RAISE "Variable <vname> has more than one driver"       !!!*)
-let check_types e1 op e2 = 32 
-(* let check_conditional e1 t1 = () *)
-(* let check_pos_expr e1 = () *)
-let check_switchable e1 t1 = ()
+let check_operand_type type_1  =
+  match type_1 with
+    Bus | Array| Const -> true
+               | _ -> raise(Error("Operand types should be bus or array or const"))
+                 
 
+let check_types e1 op e2 =
+  let (detail_1, type_1, size_1) = e1
+  in let (detail_2, type_2, size_2) = e2
+     in let _ = check_operand_type type_1
+        in let _ = check_operand_type type_2
+          in
+  			match op with
+    			Or | And | Xor -> if size_1 != size_2 then raise(Error("Operand size mismatch in logical operation "))
+       								else size_1
+                | Mul                               -> size_1 + size_2
+                | Lt | Gt | Lte | Gte | Eq | Neq    -> 1
+                | Shl | Shr                         -> if type_1 = Const then raise(Error("Bit Shift operators cant be used on Constants"))
+                                           				else size_1
+                | Add|Sub|Mod|Div                   -> Pervasives.max size_1 size_2
+                | _                                 -> raise(Error("Unary operators passed to binop"))
+
+let check_switchable e1 t1 = 
+  check_operand_type t1
+
+ 
+  
 let check_array_dereference varray size e1 t1 s1 = 
   match t1 with
     Bus -> if s1 > bit_required(size)
@@ -220,9 +238,6 @@ let check_subasn vbus x y e1 =
                )
       | _ -> raise (Error("Expected variable of type bus "^vbus.name))
       
-(*Must return also the size of the output!!!*)
-let check_types e1 op e2 =
-  32
 
 let pred (ed,t,sz) =
   match ed with
@@ -258,28 +273,30 @@ let check_function_outvars env e vbus2 =
                               else raise (Error("Size mismatch in function output assignment "^vbus.name))
                             )
         	|_ -> (raise(Error("Expected bus or subbus"))))
-   | Array -> (
-            	let Barray(vbus, sz, exd) = ed
-             	in if vbus.size < vbus2.size
-               		then raise (Error("Size mismatch in function output assignment "^vbus.name))
-              			else let _ =
-              						( match exd with
-               								Num(idx) -> (
-                           									if vbus.isAssigned.(idx)
-                           									then raise (Error("variable "^vbus.name^" has more than one driver"))
-                           									else if vbus.size < vbus2.size
-                                    							then raise (Error("Size mismatch in function output assignment "^vbus.name))
-                           										else vbus.isAssigned.(idx) <- true
-                         								) 
-             								| _ -> (
-                              						for i = 0 to vbus.size-1
-                                					do if vbus.isAssigned.(i)
-                                     					then raise (Error("Variable "^vbus.name^" has more than one driver"))
-                                						else (vbus.isAssigned.(i) <- true)
-                                     				done
-                                  					)
-                
-                    ) in true
+         | Array -> ( match ed with
+            			Barray(vbus, sz, exd) ->
+                           	( if vbus.size < vbus2.size
+                             		then raise (Error("Size mismatch in function output assignment "^vbus.name))
+                            			else let _ =
+                            						( match exd with
+                             								Num(idx) -> (
+                                         									if vbus.isAssigned.(idx)
+                                         									then raise (Error("variable "^vbus.name^" has more than one driver"))
+                                         									else if vbus.size < vbus2.size
+                                                  							then raise (Error("Size mismatch in function output assignment "^vbus.name))
+                                         										else vbus.isAssigned.(idx) <- true
+                                       								) 
+                           								| _ -> (
+                                            						for i = 0 to vbus.size-1
+                                              					do if vbus.isAssigned.(i)
+                                                   					then raise (Error("Variable "^vbus.name^" has more than one driver"))
+                                              						else (vbus.isAssigned.(i) <- true)
+                                                   				done
+                                                					)
+                              
+                                  ) in true
+                            )
+           |_ -> raise(Error("Expected type of variable Barray "))
                  )  
    | _ -> raise (Error("function assignment must be to a bus or an array"))
     
@@ -416,7 +433,10 @@ let rec chk_stmt function_table env = function
     	let e, t1, _ = chk_expr function_table env e
      	in let _ = check_switchable e t1
          in let chk_case_list (env : translation_environment) ( (e1, s1) : (Ast.expr * Ast.stmt) ) =
-            let e1, _, _ = chk_expr function_table env e1
+            let e1, t1, _ = chk_expr function_table env e1 in 
+           		let _ = if t1 != Const 
+             				then raise(Error("Case constants must be CONSTANTS")) 
+             			else ()
             in let s1 = chk_stmt function_table env s1
 	    in (e1, s1)
 	in let rec clist_helper l = function

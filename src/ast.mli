@@ -1,6 +1,6 @@
 type operator = Add | Sub | Mul | Div | Mod| Lt | Gt | Lte | Gte | Eq | Neq | Or | And | Xor | Shl | Shr | Not | Umin
 
-type bus = {name : string; size : int; init : int; unsigned : bool; async : bool}
+type bus = {name : string; size : int; init : int; unsigned : bool; async : bool; isAssigned : bool array}
 
 type gdecl =
   Const of bus * int (* bus * constant value *)	

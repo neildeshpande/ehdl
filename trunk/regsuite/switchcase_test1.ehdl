@@ -1,0 +1,37 @@
+const int(32) RED = 10; 
+const int(32) BLACK = 20;
+
+(int(32) out1, int(32) out2, int(32) out3) 
+main ( int(32) a , int(32) b, int(32) c, int(3) sel ) { 
+	
+	int(32) m1 = 2; 
+	int(32) m2 = 4; 
+	switch ( a+b ) {  
+
+	       case 0: 
+	       	    out1 = m1; 	       	  
+		    out2 = m2; // multiple statements  
+    	       case 1: 
+	       	    out1 = m2; 
+	       	    out2 = m1; 	       	    
+
+	       case 2: 
+	       	    out1 = m1 + 2; 	       	    
+	       default: 
+	       	    out2 = m1 + 10; 	
+
+	}
+	
+
+	switch ( sel ) { 
+
+	       	case 0:  
+		     out3 = RED; 
+		case 1: 
+		     out3 = BLACK;   
+		// no default      	  
+	}
+
+
+}
+

@@ -299,7 +299,7 @@ let check_subasn env vbus x y e1 =
 					| Subbus(_,strt,stop) -> if (abs (strt - stop)) != y-x
 								 then raise (Error("Size of expression is different from subbus width for "^vbus.name))
 								 else ()
-	                    		| _ -> raise (Error("Const expected"))
+	                    		| _ -> raise (Error("Const expressions are not supported"))
                       in for i = x to y do if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
            				   then raise (Error("Variable "^vbus.name^" has more than one driver"))
                  			   else vbus.isAssigned.(i) <- true done)
@@ -403,8 +403,9 @@ let rec chk_expr function_table env = function
     	let e1 = chk_expr function_table env e1 (* Check left and right children *)
 		and e2 = chk_expr function_table env e2
     	in let output_size = check_types e1 op e2 in
-	let (e1,_,_) = e1 and (e2,_,_) = e2
-	in Binop(e1, op, e2), Bus, output_size (* Success: result is bus *)
+	let (e1,t1,_) = e1 and (e2,t2,_) = e2
+	in let t = if ((t1 == Const) && (t2 == Const)) then Const else Bus
+	in Binop(e1, op, e2), t, output_size (* Success: result is bus *)
   | Ast.Basn(vname, e1) ->
     	let _ = print_endline ("Checking bus assignment for "^vname) in
 		let e1 = chk_expr function_table env e1

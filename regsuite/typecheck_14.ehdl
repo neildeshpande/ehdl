@@ -1,3 +1,4 @@
+// good case 
 int(4) c main (int(10) a, int(6) b ) { 
        	
 	int(2) m[4]; 

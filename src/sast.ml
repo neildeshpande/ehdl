@@ -194,27 +194,27 @@ let check_basn env vbus e1 =
 let check_aasn env vbus size e1 e2 = 
   let(detail_e1,t_e1, size_e1) = e1
   in match t_e1 with
-      Const -> 
+      Const -> let (ed2,t_e2, size_e2) = e2
+       			in (match t_e2 with
+				  Const -> (match ed2 with
+						  Num(v) -> if size_e2 > vbus.size
+       				 			then raise(Error("Bus size mismatch for "^vbus.name)) else ()
+						| _ -> if size_e2 != vbus.size
+       				 			then raise(Error("Bus size mismatch for "^vbus.name)) else ()	)
+				| _ ->	if size_e2 != vbus.size
+       				 	then raise(Error("Bus size mismatch for "^vbus.name)) else ()	);		  
     			(match detail_e1 with
          
          			Num(v) -> if v > (size-1) then raise(Error("Array index out of bound "^vbus.name)) 
             					else() ;
          					  if (vbus.isAssigned.(v) && not(env.scope.isWhile.(0)))
             					then raise (Error("Array index has more than one driver "^vbus.name))
-          					  else vbus.isAssigned.(v) <- true;
-    						  let (_,t_e2, size_e2) = e2
-       						  in if size_e2 != vbus.size
-       				 			then raise(Error("Bus size mismatch for "^vbus.name))
-           					  else ()
+          					  else vbus.isAssigned.(v) <- true
              			| Id(s) -> let b,_,_,_,_ = find_variable env.scope s in  
 					     if b.init > (size-1) then raise(Error("Array index out of bound "^vbus.name)) 
             					else if (vbus.isAssigned.(b.init) && not(env.scope.isWhile.(0)))
             					then raise (Error("Array index has more than one driver "^vbus.name))
-          					  else vbus.isAssigned.(b.init) <- true;
-    						  let (_,t_e2, size_e2) = e2
-       						  in if size_e2 != vbus.size
-       				 			then raise(Error("Bus size mismatch for "^vbus.name))
-           					  else ()
+          					  else vbus.isAssigned.(b.init) <- true
 				| Subbus(b,x,y) -> let rec addone p = (function
 							  0 -> p + 1
 							| n -> let newp = p + (int_of_float ( 2. ** (float_of_int n) ))
@@ -225,11 +225,7 @@ let check_aasn env vbus size e1 e2 =
 						   in if init > (size-1) then raise(Error("Array index out of bound "^vbus.name)) 
             						else if (vbus.isAssigned.(init) && not(env.scope.isWhile.(0)))
             						then raise (Error("Array index has more than one driver "^vbus.name))
-          					  	else vbus.isAssigned.(init) <- true;
-    						  let (_,t_e2, size_e2) = e2
-       						  in if size_e2 != vbus.size
-       				 			then raise(Error("Bus size mismatch for "^vbus.name))
-           					  else ()
+          					  	else vbus.isAssigned.(init) <- true
 				| _ -> raise (Error("Array index is an expression of constants: "^vbus.name))  )
       | Bus -> if(size_e1 > bit_required size)
                	then print_endline ("Warning: possible array index out of bound: "^vbus.name) else();

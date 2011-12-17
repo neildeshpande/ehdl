@@ -16,7 +16,7 @@ int(32) c adder(int(32) a, int(32) b) {
 	dummy = 3;
 
 
-	(c) = adder(e,f);
+	(c) = adder(1,f);
 	POS(1 == 1); 
 	(d) = adder(f,e(31:0)); 
 	

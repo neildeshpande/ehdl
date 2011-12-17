@@ -16,9 +16,9 @@ int(32) x adder(int(32) a, int(32) b) {
 	ar[2] = 1; }
 //	ar[2] = 4;
 
-	(c) = adder(e,f);
+	(c) = adder(1,f);
 	POS(1); 
-	(d) = adder(f,e(0:31)); 
+	(d(31:0)) = adder(f,e(31:0)); 
 	
 	g = e(0:7);
 	POS(en == 1);

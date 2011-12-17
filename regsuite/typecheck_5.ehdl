@@ -1,3 +1,4 @@
+//Type matches correctly
 int(7) c main (int(3) a) { 
 
 	  int(2) d = 2;

@@ -1,0 +1,8 @@
+int(4) c main (int(10) a, int(6) b ) { 
+       	
+	c(0) = 0; // c(0) not allowed 
+	c(1) = a(6) ; 
+	c(3:2) = a(2:1);
+}
+
+

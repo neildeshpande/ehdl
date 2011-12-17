@@ -199,7 +199,23 @@ in let rec wcondeval e env asn_map cc= match e with
 	  Block(stmts)  -> List.fold_left translate_wstmt (env,str1,str2,asn_map,cc) (List.rev stmts) 
 	| Expr(ex) -> let (e, ex_t, ex_s) = ex
 	    in let s1,s2,_,asn_map = weval e env asn_map cc in (env, (str1 ^ s1), (str2 ^ s2), asn_map, cc)   
-	| If(e,if_stmt,else_stmt) -> let s1,s2,_,_ = wcondeval e env asn_map cc
+	| If(e,if_stmt,else_stmt) -> 
+			(*Check there is no POS*)
+			let _ = (match if_stmt with
+					Block(sl) -> let chk_if_pos = (function
+							  Pos(_) -> raise (Error("Pos inside if statement"))
+							| _ -> "" )
+			     			 in let _ = (List.map chk_if_pos sl) in ""
+					| Pos(_) -> raise (Error("Pos inside if statement"))
+			   		| _ -> "" )
+			in let _ = (match else_stmt with
+					Block(sl) -> let chk_if_pos = (function
+							  Pos(_) -> raise (Error("Pos inside if statement"))
+							| _ -> "" )
+			     			 in let _ = (List.map chk_if_pos sl) in ""
+					| Pos(_) -> raise (Error("Pos inside if statement"))
+			   		| _ -> "" )	
+		in let s1,s2,_,_ = wcondeval e env asn_map cc
 	    in let _,if_block1,if_block2,asn_map,_ = translate_wstmt (env,"","",asn_map,cc) if_stmt
 	    in let _,else_block1,else_block2,asn_map,_ = translate_wstmt (env,"","",asn_map,cc) else_stmt
 	    in (env, (str1^"\t\tif (" ^ s1 ^ ") then \n" ^ if_block1 ^ "\n\t\telse\n" ^ else_block1 ^ "\t\tend if;\n"),
@@ -209,6 +225,14 @@ in let rec wcondeval e env asn_map cc= match e with
 	      [] -> env,"","",asn_map,cc
 	     |hd::tl ->       
 	      let (e1, stmt) = hd
+			(*Check there is no POS*)
+			in let _ = (match stmt with
+					Block(sl) -> let chk_if_pos = (function
+							  Pos(_) -> raise (Error("Pos inside switch statement"))
+							| _ -> "" )
+			     			 in let _ = (List.map chk_if_pos sl) in ""
+					| Pos(_) -> raise (Error("Pos inside switch statement"))
+			   		| _ -> "" )
            in let s11,s12,_,_ = weval e env asn_map cc in let s21,s22,_,_ = weval e1 env asn_map cc  
            in let s31 = "\t\tif (" ^ s11 ^ " = " ^ s21 ^ ") then \n"
 	   in let s32 = "\t\tif (" ^ s12 ^ " = " ^ s22 ^ ") then \n"  
@@ -217,7 +241,15 @@ in let rec wcondeval e env asn_map cc= match e with
 		   in (env, (str1^s31 ^ if_block1 ^ s51 ^ "\t\tend if;\n"),(str2^s32 ^ if_block2 ^ s52 ^ "\t\tend if;\n"),asn_map,cc ) )
 	| x -> 	raise (Failure ("Illegal statement within the body of the While statement" )) )
     and translate_case (left1,left2) (env,s1,s2,asn_map,cc) (e,stmt) = 
-      ( match e with 
+			(*Check there is no POS*)
+			let _ = (match stmt with
+					Block(sl) -> let chk_if_pos = (function
+							  Pos(_) -> raise (Error("Pos inside switch statement"))
+							| _ -> "" )
+			     			 in let _ = (List.map chk_if_pos sl) in ""
+					| Pos(_) -> raise (Error("Pos inside switch statement"))
+			   		| _ -> "" )
+      in ( match e with 
      (* SAST needs to check there is atmost one dafault and no duplicate 
      case expressions *) 
           Noexpr->   translate_wstmt (env,s1 ^ "\t\telse \n", s2 ^ "\t\telse \n",asn_map,cc) stmt   
@@ -451,7 +483,22 @@ in let rec condeval e env asn_map cc= match e with
 	| Expr(ex) -> let (e, ex_t, ex_s) = ex
 	    in let s,env,asn_map = eval e env asn_map cc in (env, (str ^ s), asn_map, cc)   
 	| If(e,if_stmt,else_stmt) -> 
-		let s,env,_ = condeval e env asn_map cc
+			(*Check there is no POS*)
+			let _ = (match if_stmt with
+					Block(sl) -> let chk_if_pos = (function
+							  Pos(_) -> raise (Error("Pos inside if statement"))
+							| _ -> "" )
+			     			 in let _ = (List.map chk_if_pos sl) in ""
+					| Pos(_) -> raise (Error("Pos inside if statement"))
+			   		| _ -> "" )
+			in let _ = (match else_stmt with
+					Block(sl) -> let chk_if_pos = (function
+							  Pos(_) -> raise (Error("Pos inside if statement"))
+							| _ -> "" )
+			     			 in let _ = (List.map chk_if_pos sl) in ""
+					| Pos(_) -> raise (Error("Pos inside if statement"))
+			   		| _ -> "" )
+		in let s,env,_ = condeval e env asn_map cc
 	    in let env,if_block,asn_map,_ = translate_stmt (env,"",asn_map,cc) if_stmt
 	    in let env,else_block,asn_map,_ = translate_stmt (env,"",asn_map,cc) else_stmt
 	    in (env, (str^"\t\tif (" ^ s ^ ") then \n" ^ if_block 
@@ -464,6 +511,14 @@ in let rec condeval e env asn_map cc= match e with
 	     |hd::tl ->       
 	     (*let s,env,asn_map = eval e env asn_map 
            in *)let (e1, stmt) = hd
+			(*Check there is no POS*)
+			in let _ = (match stmt with
+					Block(sl) -> let chk_if_pos = (function
+							  Pos(_) -> raise (Error("Pos inside switch statement"))
+							| _ -> "" )
+			     			 in let _ = (List.map chk_if_pos sl) in ""
+					| Pos(_) -> raise (Error("Pos inside switch statement"))
+			   		| _ -> "" )
            in let s1,env,_ = eval e env asn_map cc in let s2,env,_ = eval e1 env asn_map cc  
            in let s3 = "\t\tif (" ^ s1 ^ " = " ^ s2 ^ ") then \n"  
            in let env,if_block,asn_map,_ = translate_stmt (env,"",asn_map,cc) stmt
@@ -571,7 +626,15 @@ in let rec condeval e env asn_map cc= match e with
 
 	| x -> 	raise (Failure ("Statement not supported yet " )) )
     and translate_case left (env,s,asn_map,cc) (e,stmt) = 
-      ( match e with 
+			(*Check there is no POS*)
+			let _ = (match stmt with
+					Block(sl) -> let chk_if_pos = (function
+							  Pos(_) -> raise (Error("Pos inside switch statement"))
+							| _ -> "" )
+			     			 in let _ = (List.map chk_if_pos sl) in ""
+					| Pos(_) -> raise (Error("Pos inside switch statement"))
+			   		| _ -> "" )
+      in ( match e with 
      (* SAST needs to check there is atmost one dafault and no duplicate 
      case expressions *) 
           Noexpr->   translate_stmt (env,s ^ "\t\telse \n",asn_map,cc) stmt   

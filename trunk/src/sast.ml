@@ -332,7 +332,8 @@ let check_function_outvars env e vbus2 =
   						else raise(Error("Function output variable width mismatch "^vbus1.name^" "^vbus2.name))
                     )
       		| Subbus(vbus,x,y) -> (
-                              if(vbus2.size = y-x+1)
+			      let (x,y) = if x < y then (x,y) else (y,x)
+                              in if(vbus2.size = y-x+1)
                               then (let _ = (for i = x to y
                                             do if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
                                             then raise (Error("Variable "^vbus.name^" has more than one driver"))

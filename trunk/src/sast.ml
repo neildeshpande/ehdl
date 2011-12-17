@@ -505,7 +505,7 @@ let rec chk_stmt function_table env = function
          in let chk_case_list (env : translation_environment) ( (e1, s1) : (Ast.expr * Ast.stmt) ) =
             let e1, t1, _ = chk_expr function_table env e1 in 
            		let _ = if not(t1 = Const || t1 = Void) (* Void represents the default case *)
-             then raise(Error("Case constants must be CONSTANTS" ^ string_of_sast_type t1)) 
+             then raise(Error("Case constants must be CONSTANTS. Received case expression of type: " ^ string_of_sast_type t1)) 
              			else ()
             	in let s1 = chk_stmt function_table env s1
 	    	in (e1, s1)

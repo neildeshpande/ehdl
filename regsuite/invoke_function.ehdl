@@ -11,14 +11,18 @@ int(32) c adder(int(32) a, int(32) b) {
 	(ar[0]) = adder(e,f);
 	(ar[en]) = adder(ar[0],f);
 	ar[2] = 2;
-	//ar[2] = 4;
+
+	int(32) dummy;
+	dummy = 3;
+
 
 	(c) = adder(e,f);
 	POS(1 == 1); 
-	(d) = adder(f,e(0:31)); 
+	(d) = adder(f,e(31:0)); 
 	
-	g = e(0:7);
+	g = e(7:0);
 	POS(en == 1);
+
 }
 
 

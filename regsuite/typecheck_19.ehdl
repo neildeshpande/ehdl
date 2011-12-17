@@ -1,0 +1,5 @@
+// assigning narrower input bus to wider bus 
+int(4) c main (int(10) a, int(6) b ) { 
+       	
+	c = a(6:4); 
+}

@@ -11,7 +11,6 @@
 /*Need to check precedence in C!*/
 %nonassoc NOELSE
 %nonassoc ELSE
-%right NOT
 %right ASN
 %left EQ NEQ
 %left LT GT LTE GTE
@@ -20,6 +19,7 @@
 %left OR XOR
 %left AND
 %left SHL SHR
+%right NOT
 %nonassoc UMINUS /* Highest precedence for unary minus! */
 
 %start program

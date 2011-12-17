@@ -1,4 +1,4 @@
-// Case statement not constant 
+// Reject: Case statement not constant 
 
 
 int(2) res main (int(2) a, int(2) b) { 

@@ -1,3 +1,4 @@
+//Good case
 int(2) res main(int(2) a, int(2) b, int(2) sel ) { 
     // when, select and other vhdl keywords need to have special string appended to them   
     switch ( sel ) { 

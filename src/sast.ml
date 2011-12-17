@@ -378,22 +378,7 @@ let check_function_invars e vbus1 =
 let check_call env out_actuals in_actuals fd =
   let _ = print_endline ("Checking function call: "^fd.fid)
     in
-  let _ =(*
-           List.fold_left (fun l x -> match l with   (*TODO: Change fold left to use for_all to make code cleaner *)
-                               hd::tl ->  (* check_basn x hd in tl *)
-                                 let (ed, t, sz) = hd in
-                                 (match t with
-                                   Bus -> (let Id(vname) = ed in
-                                       let vbus, _, vtype, _, _ = 
-                                       		try
-                                    			find_variable env.scope vname (* locate a variable by name *)
-                                    		with Not_found ->
-                                    			raise (Error("undeclared identifier " ^ vname))
-                                       in let _ = check_function_outvars vbus x in tl)
-      								| _ -> let _ = print_endline ("Expected variable of type bus: ") in tl
-                                 )
-                            | [] -> []) out_actuals fd.pout
-	*)
+  let _ =
     List.for_all2 (check_function_outvars env) out_actuals fd.pout
   in let _ = List.for_all2 check_function_invars in_actuals fd.pin  
      in ()
@@ -462,7 +447,7 @@ let rec chk_stmt function_table env = function
     Ast.Expr(e) -> Expr(chk_expr function_table env e)
   | Ast.If(e1, s1, s2) ->
     	let e1, t1, _ = chk_expr function_table env e1
-     in (* check_conditional e1 t1; *)
+     in 
     let temp = { scope =
                  { env.scope with
                         variables = List.map (
@@ -519,16 +504,28 @@ let rec chk_stmt function_table env = function
      	in let _ = check_switchable e t1
          in let chk_case_list (env : translation_environment) ( (e1, s1) : (Ast.expr * Ast.stmt) ) =
             let e1, t1, _ = chk_expr function_table env e1 in 
-           		let _ = if t1 != Const 
-             				then raise(Error("Case constants must be CONSTANTS")) 
+           		let _ = if not(t1 = Const || t1 = Void) (* Void represents the default case *)
+             then raise(Error("Case constants must be CONSTANTS" ^ string_of_sast_type t1)) 
              			else ()
-            in let s1 = chk_stmt function_table env s1
-	    in (e1, s1)
-	in let rec clist_helper l = function
-	   [] -> List.rev l
-	 | hd::tl -> let new_l = (chk_case_list env hd) :: l
-			in clist_helper new_l tl
-	in let clist = clist_helper [] caselist	
+            	in let s1 = chk_stmt function_table env s1
+	    	in (e1, s1)
+    	in let rec clist_helper l = function
+                      	   [] -> List.rev l
+                      	 | hd::tl ->
+                          		let temp = { scope =
+                                       			{ env.scope with
+                                              		variables = List.map (
+                                                      		fun (b, s, t, l, f) ->
+                                                              	( { b with isAssigned =
+                                                                      Array.copy b.isAssigned },
+                                                               	s, t, l, f )
+                                                      		) env.scope.variables
+                                      			}
+                              	}
+          						in  let new_l = ((chk_case_list temp hd),temp) :: l
+    							in clist_helper new_l tl
+    in let nlist = clist_helper [] caselist
+       in let clist = List.map (fun ((x,y),z) -> let _ = (List.for_all2 pred env.scope.variables z.scope.variables) in (x,y)) nlist
 (* Un-comment to check if Switch is parsed *)
 	(*in let _ = print_endline "parsed a Switch"*)
 	in Switch(e, clist)
@@ -591,14 +588,7 @@ let check_func (env : translation_environment) (portin : (Ast.bus list)) (portou
 	
 	in let (new_stmt_list,call_lst) = 
 	List.fold_left (run_chk_stmt full_env) ([],[]) (List.rev stmts)  
-	
-	(*
-	let rec stmt_helper l cl = function
-		  [] -> List.rev l
-		| hd::tl -> let new_l = ( run_chk_stmt full_env cl hd )::l
-			in stmt_helper new_l tl
-	  in stmt_helper [] [] stmts *)
-    in (full_env, List.rev call_lst, List.rev new_stmt_list)
+	in (full_env, List.rev call_lst, List.rev new_stmt_list)
   
 
 (* Function table *)

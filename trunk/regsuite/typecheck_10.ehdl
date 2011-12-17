@@ -1,3 +1,4 @@
+//Wrong array assignment
 int(4) c main (int(10) a) { 
 
 	int(8) b[4]; 

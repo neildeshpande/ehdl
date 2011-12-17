@@ -1,0 +1,50 @@
+//OPCODE CONSTANTS - not exhaustive! (supports only immediate branches)
+const uint(6) rtype = 0;
+const uint(6) rtype2 = 28;
+const uint(6) loadb = 32;
+const uint(6) loadh = 33;
+const uint(6) loadw = 35;
+const uint(6) storeb = 40;
+const uint(6) storeh = 41;
+const uint(6) storew = 43;
+const uint(6) addi = 6;
+const uint(6) andi = 12;
+const uint(6) ori = 13;
+const uint(6) xori = 14;
+const uint(6) jump = 2;
+const uint(6) jumplink = 3;
+const uint(6) brancheq = 4;
+const uint(6) branchneq = 5;
+const uint(6) branchlez = 6;
+const uint(6) branchgtz = 7;
+
+//FUNCT encoding for R-type instructions
+const uint(6) add = 32;
+const uint(6) sub = 34;
+const uint(6) and = 36;
+const uint(6) or = 37;
+const uint(6) xor = 38;
+const uint(6) slt = 43;
+const uint(6) jr = 8;
+
+//ALU Function Control
+const uint(3) alu_add = 2;
+const uint(3) alu_sub = 6;
+const uint(3) alu_slt = 7;
+const uint(3) alu_or = 1;
+const uint(3) alu_xor = 4;
+const uint(3) alu_and = 0;
+
+//Branch Target
+uint(32) bt inst_bt(uint(32) npc, int(32) imm, uint(26) j_index, int(32) a, uint(6) op){
+  int(32) imm_shift;
+  imm_shift = imm << 2;
+  int(26) j_index_shift;
+  j_index_shift = j_index << 2;
+
+  if ((op == jump) || (op == jumplink)) {bt(31:28) = npc(31:28); bt(27:2) = j_index_shift; bt(1:0) = 0;}
+  else if ((op == brancheq) || (op==branchneq) || (op==branchlez) || (op==branchgtz)) bt = npc + imm_shift;
+  else if (op==rtype) bt = a;
+  else bt = npc + imm_shift;
+
+}

@@ -1,0 +1,8 @@
+int(10) c main (int(3) a) { 
+
+	int(2) b[5]; 
+	int(2) d[5]; 
+	b = d;   
+
+	c = a; 	
+}

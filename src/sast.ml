@@ -96,6 +96,7 @@ let rec find_variable (scope : symbol_table) name =
 (* Add local to Symbol Table *)
 let check_and_add_local (vbus, x, t, lt, dr) (env : translation_environment) =
   let _ = print_endline ("Adding local " ^ vbus.name ^ " " ^ string_of_int x ^ " " ^ string_of_bool dr) in
+  if bit_required vbus.init > vbus.size then raise (Error("Initial value does not fit bus size: "^vbus.name)) else
   if dr then ( if (x = 0) 
   				then for i = 0 to vbus.size-1 do vbus.isAssigned.(i) <- true done
       		   else for i = 0 to x-1 do vbus.isAssigned.(i) <- true done)

@@ -591,7 +591,8 @@ in let rec condeval e env asn_map cc= match e with
     			| x -> raise (Failure("Function Call to " ^ fdecl.fid ^ ": illegal actual assignment"))
  	    in
 	    let s1, asn_map = (match (List.hd l) with
-	     Id(i) -> let bs_i = bus_from_var (find_variable cloc.scope i)
+	     Num(v) -> let s = num_to_slv (string_of_int v) b.size in s,am(******)
+	   |  Id(i) -> let bs_i = bus_from_var (find_variable cloc.scope i)
 			in let am = update_asn (Basn(bs_i, Id("port map"))) am (*I don't care about the expr_detail in the assignment*)
 			in i ^ "_r" ^ (string_of_int cc), am
 	   | Barray(bs, _, e1) -> let v1,am = actual_barray am bs e1

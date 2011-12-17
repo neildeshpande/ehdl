@@ -3,7 +3,7 @@ rm -rf *.vhd
 clear
 ./ehdl ../regsuite/$1\.ehdl
 mv main.vhd $1\.vhd
-cp $1\.vhd ../sim/$1\.vhd
+#cp $1\.vhd ../sim/$1\.vhd
 rm -rf work
 vlib work
 vcom $1\.vhd

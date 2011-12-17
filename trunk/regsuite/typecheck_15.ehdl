@@ -1,3 +1,4 @@
+// Wrong bus reference!
 int(4) c main (int(10) a, int(6) b ) { 
        	
 	c(0) = 0; // c(0) not allowed 

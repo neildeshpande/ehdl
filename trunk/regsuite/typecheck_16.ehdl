@@ -1,3 +1,4 @@
+//Const expression is not supported
 int(4) c main (int(10) a, int(6) b ) { 
        	
 	c(1:0) = 0+3; // assign to const expression 

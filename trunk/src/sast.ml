@@ -25,18 +25,21 @@ type types =
 (* Covers both buses and array, out of bounds exceptions should done at run time *)
 type symbol_table = {
   parent : symbol_table option;
-  variables : (Ast.bus * int * types * local_t * bool) list
+  variables : (Ast.bus * int * types * local_t * bool) list;
+  isIf : bool array;
+  isWhile : bool array
                     }
 
 type translation_environment = {
 	scope : symbol_table; (* symbol table for vars *)
 }
 
-type function_decl = {	pout : Ast.bus list;
+type function_decl = {
+  	 pout : Ast.bus list;
 	 fid  : string;
 	 pin  : Ast.bus list;
 	 floc : translation_environment;
-     	 fcalls : function_decl list; (* list of other functions that are called by this function *)  
+     fcalls : function_decl list; (* list of other functions that are called by this function *)  
 	 fbod : s_stmt list;
 }
 
@@ -92,35 +95,246 @@ let rec find_variable (scope : symbol_table) name =
 
 (* Add local to Symbol Table *)
 let check_and_add_local (vbus, x, t, lt, dr) (env : translation_environment) =
+  let _ = print_endline ("Adding local " ^ vbus.name ^ " " ^ string_of_int x ^ " " ^ string_of_bool dr) in
+  if dr then ( if (x = 0) 
+  				then for i = 0 to vbus.size-1 do vbus.isAssigned.(i) <- true done
+      		   else for i = 0 to x-1 do vbus.isAssigned.(i) <- true done)
+  else if (x = 0)
+  		then (for i = 0 to vbus.size-1 do vbus.isAssigned.(i) <- false;  done)
+   else for i = 0 to x-1 do vbus.isAssigned.(i) <- false done;
+     
   let var = (vbus, x, t, lt, dr) in
 (* Un-comment to print the list of locals name *)
   (*let _ = print_endline vbus.name in*)
   if List.exists (fun (varbus, _, _, _, _) -> varbus.name = vbus.name) env.scope.variables
   then raise (Error("Multiple declarations for " ^ vbus.name))
   else let new_scope = { parent = env.scope.parent;
-		         variables = var :: env.scope.variables; }
+		         variables = var :: env.scope.variables; isIf = env.scope.isIf; isWhile = env.scope.isWhile}
   in let new_env = { scope = new_scope;}
        in  new_env
 
 
-(* Check type compatibility of e1 and e2 for the given op *)
-(* Raise error if incompatible else return unit *)
-(*!!! WHILE WRITING THESE FUNCTIONS, CHECK THE LAST FIELD OF THE VARIABLES:
-      IF TRUE RAISE "Variable <vname> has more than one driver"       !!!*)
-let check_types e1 op e2 = 32 (*Must return also the size of the output!!!*)
-let check_basn vbus e1 = ()
-let check_subasn vbus x y e1 = ()
-let check_aasn vbus e1 e2 = ()
-let check_call env out_actuals in_actuals func_decl = ()
-let check_subbus vbus x y = ()
-let check_array_dereference  varray size e1 s1 = ()
-let check_conditional e1 t1 = ()
-let check_pos_expr e1 = ()
-let check_switchable e1 t1 = ()
-let check_function_params fd expr_detail_list = ()
+let check_operand_type type_1  =
+  match type_1 with
+    Bus | Array| Const -> true
+               | _ -> raise(Error("Operand types should be bus or array or const"))
+                 
 
+let check_types e1 op e2 =
+  let (detail_1, type_1, size_1) = e1
+  in let (detail_2, type_2, size_2) = e2
+     in let _ = check_operand_type type_1
+        in let _ = check_operand_type type_2
+          in
+  			match op with
+    			Or | And | Xor -> if size_1 != size_2 then raise(Error("Operand size mismatch in logical operation "))
+       								else size_1
+                | Mul                               -> size_1 + size_2
+                | Lt | Gt | Lte | Gte | Eq | Neq    -> 1
+                | Shl | Shr                         -> if type_1 = Const then raise(Error("Bit Shift operators cant be used on Constants"))
+                                           				else size_1
+                | Add|Sub|Mod|Div                   -> Pervasives.max size_1 size_2
+                | _                                 -> raise(Error("Unary operators passed to binop"))
 
-(*Check expressions *)
+let check_switchable e1 t1 = 
+  check_operand_type t1
+
+ 
+  
+let check_array_dereference varray size e1 t1 s1 = 
+  match t1 with
+    Bus -> if s1 > bit_required(size)
+    		then raise(Error("Array index out of bound "^varray.name))
+    	  else()
+    | Const -> (
+               	match e1 with
+               		Num(v) -> if v > size
+               					then raise(Error("Array index out of bound "^varray.name))
+      						  else()
+    				| _ -> raise (Error("Const expected "^varray.name))
+                )
+    | _ -> raise (Error("Bus or Const expected "^varray.name))
+    
+  
+let check_basn env vbus e1 =
+  let _ = print_endline ("Checking variable "^vbus.name) in
+  
+  	let (detail, t, size) = e1
+   in match t with
+     Bus -> if size <= vbus.size
+     then for i = 0 to vbus.size-1 do 
+       								(* print_endline ("Checking bit " ^ string_of_int i); *)
+       								if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
+     								then raise (Error("Variable "^vbus.name^" has more than one driver"))
+     								else vbus.isAssigned.(i) <- true done
+     
+     else raise (Error("Bus size mismatch for "^vbus.name))
+       | Const -> (for i = 0 to vbus.size-1 do if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
+     								then raise (Error("Variable "^vbus.name^" has more than one driver"))
+     								else vbus.isAssigned.(i) <- true done;
+         
+         			match detail with
+         				Num(v) -> if (bit_required v) > vbus.size
+             						then raise(Error("size mismatch "^vbus.name))
+             					else()
+                    	|_ -> raise (Error("Const expected "^vbus.name))
+             )
+       | _ -> raise (Error("Expected variable of type bus or const "^vbus.name))
+  
+         
+let check_aasn env vbus size e1 e2 = 
+  let(detail_e1,t_e1, size_e1) = e1
+  in match t_e1 with
+      Const -> 
+    			(match detail_e1 with
+         
+         			Num(v) -> if v > size 
+            						then raise(Error("Array index out of bound "^vbus.name)) 
+            					else() ;
+         					  if (vbus.isAssigned.(v) && not(env.scope.isWhile.(0)))
+            					then raise (Error("Array index has more than one driver "^vbus.name))
+          					  else vbus.isAssigned.(v) <- true;
+    						  let (_,t_e2, size_e2) = e2
+       						  in if size_e2 > vbus.size
+       				 			then raise(Error("Bus size mismatch for "^vbus.name))
+           					  else ()
+             		| _ -> raise(Error("Expected const")))
+      | Bus -> if(size_e1 > bit_required size)
+               	then raise (Error("Array Index out of bound "^vbus.name))
+               else();
+               for i = 0 to size-1 do if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
+      										then raise (Error("Array index has more than one driver "^vbus.name))
+                					else vbus.isAssigned.(i) <- true done ; 
+        		let (_,t_e2,size_e2) = e2
+        		in if size_e2 > vbus.size
+        			then raise (Error("Bus size mismatch for "^vbus.name))
+        		   else()
+                  			
+      | _ -> raise (Error("Array index should be const or bus "^vbus.name)) 
+  
+    
+
+let check_subbus vbus x y =
+  if x >= 0 && y <= vbus.size && x <= y then ()
+  else raise (Error("Incorrect subbus dereference for "^vbus.name))
+
+let check_subasn env vbus x y e1 = 
+  let (detail, t, size) = e1
+  in match t with 
+    Bus -> let _ = check_subbus vbus x y
+           in if size <= y-x+1
+           then for i = x to y do if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
+           						then raise (Error("Variable "^vbus.name^" has more than one driver"))
+                 				else vbus.isAssigned.(i) <- true done
+           else raise (Error("Size of expression is bigger than subbus width for "^vbus.name))
+    | Const -> (let _ = check_subbus vbus x y
+                in let _ = match detail with
+                 			Num(v) -> if(bit_required v) > y-x+1
+                 						then raise (Error("Size of expression is bigger than subbus width for "^vbus.name))
+                     		  		else ()
+                    		| _ -> raise (Error("Const expected"))
+                      in  
+           		 		for i = x to y do if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
+           						then raise (Error("Variable "^vbus.name^" has more than one driver"))
+                 		else vbus.isAssigned.(i) <- true done
+               )
+      | _ -> raise (Error("Expected variable of type bus "^vbus.name))
+      
+
+let pred (b,_,_,_,_) (b',_,_,_,_) =
+  		let _ =
+                for i=0 to ((Array.length b.isAssigned) - 1) do
+                        b.isAssigned.(i) <- b'.isAssigned.(i) || b.isAssigned.(i)
+                done
+        in true      
+        
+let check_function_outvars env e vbus2 =
+  let (ed, t,sz) = e
+  in match t with
+    Bus -> (
+           match ed with
+           Id(vname) -> (
+                    let vbus1, _, vtype, _, _ = 
+                                       		try
+                                    			find_variable env.scope vname (* locate a variable by name *)
+                                    		with Not_found ->
+                                    			raise (Error("undeclared identifier " ^ vname))
+                    in
+        				if vbus1.size >= vbus2.size then 
+								let _ = (for i = 0 to vbus1.size-1 
+             								do if (vbus1.isAssigned.(i) && not(env.scope.isWhile.(0)))
+                   								then raise(Error("Bus "^vbus1.name^" has more than one driver"))
+                         					   else vbus1.isAssigned.(i) <- true done) in true
+  						else raise(Error("Function output variable width mismatch "^vbus1.name^" "^vbus2.name))
+                    )
+      		| Subbus(vbus,x,y) -> (
+                              if(vbus2.size <= y-x+1)
+                              then (let _ = (for i = x to y
+                                            do if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
+                                            then raise (Error("Variable "^vbus.name^" has more than one driver"))
+                                            else (vbus.isAssigned.(i) <- true) done) in true)
+                              else raise (Error("Size mismatch in function output assignment "^vbus.name))
+                            )
+        	|_ -> (raise(Error("Expected bus or subbus"))))
+         | Array -> ( match ed with
+            			Barray(vbus, sz, exd) ->
+                           	( if vbus.size < vbus2.size
+                             		then raise (Error("Size mismatch in function output assignment "^vbus.name))
+                            			else let _ =
+                            						( match exd with
+                             								Num(idx) -> (
+                                         									if (vbus.isAssigned.(idx) && not(env.scope.isWhile.(0)))
+                                         									then raise (Error("variable "^vbus.name^" has more than one driver"))
+                                         									else if vbus.size < vbus2.size
+                                                  							then raise (Error("Size mismatch in function output assignment "^vbus.name))
+                                         										else vbus.isAssigned.(idx) <- true
+                                       								) 
+                           								| _ -> (
+                                            						for i = 0 to vbus.size-1
+                                              					do if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
+                                                   					then raise (Error("Variable "^vbus.name^" has more than one driver"))
+                                              						else (vbus.isAssigned.(i) <- true)
+                                                   				done
+                                                					)
+                              
+                                  ) in true
+                            )
+           |_ -> raise(Error("Expected type of variable Barray "))
+                 )  
+   | _ -> raise (Error("function assignment must be to a bus or an array"))
+    
+     
+let check_function_invars e vbus1 =
+  let (ed, t, sz) = e in
+  if vbus1.size >= sz then true
+  else raise(Error("Function input arguments width mismatch "^vbus1.name))
+  
+let check_call env out_actuals in_actuals fd =
+  let _ = print_endline ("Checking function call: "^fd.fid)
+    in
+  let _ = (* 
+           List.fold_left (fun l x -> match l with   (*TODO: Change fold left to use for_all to make code cleaner *)
+                               hd::tl ->  (* check_basn x hd in tl *)
+                                 let (ed, t, sz) = hd in
+                                 (match t with
+                                   Bus -> (let Id(vname) = ed in
+                                       let vbus, _, vtype, _, _ = 
+                                       		try
+                                    			find_variable env.scope vname (* locate a variable by name *)
+                                    		with Not_found ->
+                                    			raise (Error("undeclared identifier " ^ vname))
+                                       in let _ = check_function_outvars vbus x in tl)
+      								| _ -> let _ = print_endline ("Expected variable of type bus: ") in tl
+                                 )
+                            | [] -> []) out_actuals fd.pout
+           *)
+    List.for_all2 (check_function_outvars env) out_actuals fd.pout
+  in let _ = List.for_all2 check_function_invars in_actuals fd.pin  
+     in ()
+  
+  
+(* Check expressions *)
+(* This returns expr_detail * types * int *)
 let rec chk_expr function_table env = function
 (* An integer constant: convert and return Int type *)
 	Ast.Num(v) ->
@@ -141,22 +355,23 @@ let rec chk_expr function_table env = function
 	let (e1,_,_) = e1 and (e2,_,_) = e2
 	in Binop(e1, op, e2), Bus, output_size (* Success: result is bus *)
   | Ast.Basn(vname, e1) ->
+    	let _ = print_endline ("Checking bus assignment for "^vname) in
 		let e1 = chk_expr function_table env e1
   and vbus, _, _, _, _ = find_variable env.scope vname
-    	in let _ = check_basn vbus e1
+  in let _ = check_basn env vbus e1
 	in let (e1, _, _) = e1
 	in Basn(vbus, e1), Bus, vbus.size
   | Ast.Subasn(vname, x, y, e1) ->
 	let e1 = chk_expr function_table env e1
   and vbus, _, _, _, _ = find_variable env.scope vname
-	in let _ = check_subasn vbus x y e1
+  in let _ = check_subasn env vbus x y e1
 	in let (e1, _, _) = e1
 	in Subasn(vbus, x, y, e1), Bus, (abs(x-y) +1);
   | Ast.Aasn(vname, e1, e2) ->
 		let e1 = chk_expr function_table env e1
   		and e2 = chk_expr function_table env e2
   		and vbus, size, _, _, _ = find_variable env.scope vname
-    	in let _ = check_aasn vbus e1 e2
+    in let _ = check_aasn env vbus size e1 e2
 	in let (e1, _, _) = e1 and (e2, _, _) = e2
     	in Aasn(vbus, size, e1, e2), Bus, vbus.size
   (* NEED TO CHECK OUTPUT PORTS MATCH WITH LOCALS ASSIGNMENT!!!*)
@@ -164,37 +379,55 @@ let rec chk_expr function_table env = function
     	let (e1, t1, s1)= chk_expr function_table env e1
      in Unop(op, e1), t1, s1
   | Ast.Subbus(vname, x, y) ->
+    	let _ = print_endline ("Check Sub bus asn for: "^vname^" with params: "
+       					^ (string_of_int x) ^ " " ^ (string_of_int y)) in 
     	let vbus, _, _, _, _ = find_variable env.scope vname
      	in check_subbus vbus x y;
     	Subbus(vbus, x, y), Bus, (abs(x-y) +1)
   | Ast.Barray(vname, e1) ->
     	let (e1, t1, s1) = chk_expr function_table env e1
      and varray, size, vtype, _, _ = find_variable env.scope vname
-     in check_array_dereference varray size e1 s1;
+     in check_array_dereference varray size e1 t1 s1;
     Barray(varray, size, e1), vtype, varray.size (*Be careful!!! A reference to array a[i] returns always a varray type!*)
   | Ast.Noexpr -> Noexpr, Void, 0
-
-
+    
 (*Check Statements*)
 let rec chk_stmt function_table env = function
     Ast.Expr(e) -> Expr(chk_expr function_table env e)
   | Ast.If(e1, s1, s2) ->
     	let e1, t1, _ = chk_expr function_table env e1
-     in check_conditional e1 t1;
-    If(e1, chk_stmt function_table env s1, chk_stmt function_table env s2)
+     in (* check_conditional e1 t1; *)
+    let temp = { scope =
+                 { env.scope with
+                        variables = List.map (
+                                fun (b, s, t, l, f) ->
+                                        ( { b with isAssigned =
+                                                Array.copy b.isAssigned },
+                                         s, t, l, f )
+                                ) env.scope.variables
+                }
+        }
+    in let stmt_1 = chk_stmt function_table temp s1
+       in
+    let stmt_2 = chk_stmt function_table env s2
+    in let _ = List.for_all2 pred (env.scope.variables) (temp.scope.variables)
+      in If(e1,  stmt_1, stmt_2)
   | Ast.For(e1, e2, e3, s1) ->
     	let e1, t1, _= chk_expr function_table env e1
      	and e2, t2, _= chk_expr function_table env e2
      	and e3, t3, _= chk_expr function_table env e3
-      in check_conditional e1 t1;
+      in (* check_conditional e1 t1;*)
     For(e1, e2, e3, chk_stmt function_table env s1)
   | Ast.While(e1, s1) ->
+    	let _ = env.scope.isWhile.(0) <- true in
     	let e1, t1, _= chk_expr function_table env e1
-     	in check_conditional e1 t1;
-    	While(e1, chk_stmt function_table env s1)
+     in (* check_conditional e1 t1;*)
+    	let statement = chk_stmt function_table env s1
+     in let _ = env.scope.isWhile.(0) <- false in
+    	While(e1, statement)
   | Ast.Pos(e1) ->
     	let e1, t1, _= chk_expr function_table env e1
-     	in check_pos_expr e1;
+     in (* check_pos_expr e1;*)
     	Pos(e1)
   | Ast.Block(slist) ->
     	(*(* New scopes: parent is the existing scope, start out empty *)
@@ -218,8 +451,11 @@ let rec chk_stmt function_table env = function
   | Ast.Switch(e, caselist) ->
     	let e, t1, _ = chk_expr function_table env e
      	in let _ = check_switchable e t1
-	in let chk_case_list (env : translation_environment) ( (e1, s1) : (Ast.expr * Ast.stmt) ) =
-            let e1, _, _ = chk_expr function_table env e1
+         in let chk_case_list (env : translation_environment) ( (e1, s1) : (Ast.expr * Ast.stmt) ) =
+            let e1, t1, _ = chk_expr function_table env e1 in 
+           		let _ = if t1 != Const 
+             				then raise(Error("Case constants must be CONSTANTS")) 
+             			else ()
             in let s1 = chk_stmt function_table env s1
 	    in (e1, s1)
 	in let rec clist_helper l = function
@@ -231,22 +467,33 @@ let rec chk_stmt function_table env = function
 	(*in let _ = print_endline "parsed a Switch"*)
 	in Switch(e, clist)
 	
-   | Ast.Call(fname, out_list, in_list ) ->	
+  | Ast.Call(fname, out_list, in_list ) ->	
+    	let _ = print_endline ("Checking function call: "^fname) in
+    	let _ = List.iter (fun x -> match x with  
+       					Ast.Id(v) -> print_endline ("Assigning to: "^v)
+                       	| _ -> print_endline "This better be an array deref or a subbus") out_list in
+    	let _ = List.iter (fun x -> match x with  
+       					Ast.Id(v) -> print_endline ("Call param: "^v)
+                       	| _ -> print_endline "Check expr passed as call param:") in_list in
     	let func_decl = 
        		try StringMap.find fname function_table
          with Not_found -> raise (Failure ("undefined function " ^ fname))
-    in let _ = check_call env out_list in_list func_decl     
     in let inlist = List.fold_left 
-    ( fun l x -> let e1, _, _ =  chk_expr function_table env x in e1::l ) [] in_list 
+    ( fun l x -> let e1 =  chk_expr function_table env x in e1::l ) [] in_list 
     in let outlist = List.fold_left 
-    ( fun l x -> let e1, _, _ =  chk_expr function_table env x in e1::l ) [] out_list
-(* Un-comment to check if Function Call is parsed *)
-	(*in let _ = print_endline "Function Call parsed"*)
-	in Call(func_decl, outlist, inlist)
+    ( fun l x -> let e1 =  chk_expr function_table env x in e1::l ) [] out_list
+       in let _ = print_endline "Just before checking function call"
+       in let _ = check_call env outlist inlist func_decl
+          in let outlist = List.fold_left (fun l x -> let (e1, _, _) = x in e1::l) [] outlist
+             in let inlist = List.fold_left (fun l x -> let (e1, _, _) = x in e1::l) [] inlist
+              (* Uncomment to check if Function Call is parsed *)
+              	(* in let _ = print_endline "Function Call parsed" *)
+              		in Call(func_decl, outlist, inlist)
 
 
 (* Function translation Ast -> Sast. Build Symbol table; parse statements*)
 let check_func (env : translation_environment) (portin : (Ast.bus list)) (portout : (Ast.bus list)) (body : Ast.fbody) function_table =
+  let _ = print_endline "Checking fucntion... " in
   let pin_env = List.fold_left (
     fun (pin_env : translation_environment) (actual : Ast.bus) ->
       check_and_add_local (actual, 0, Bus, In_port, true) pin_env
@@ -258,23 +505,26 @@ let check_func (env : translation_environment) (portin : (Ast.bus list)) (portou
 				) pin_env portout
   in
   let (locals_list, stmts) = body
-  in let full_env = List.fold_left (
-    fun (env : translation_environment) (actual : Ast.locals) ->
-      match actual with
-      	  Bdecl(vbus) -> check_and_add_local (vbus, 0, Bus, Int_signal, false) env
-        | Adecl(vbus, size) -> check_and_add_local (vbus, size, Array, Int_signal, false) env
-                            ) pout_env locals_list	
+  	in let full_env = List.fold_left (
+    						fun (env : translation_environment) (actual : Ast.locals) ->
+                            match actual with
+                            	  Bdecl(vbus) -> check_and_add_local (vbus, 0, Bus, Int_signal, false) env
+                              | Adecl(vbus, size) -> check_and_add_local (vbus, size, Array, Int_signal, false) env
+                                                  ) pout_env locals_list	
 	in let run_chk_stmt (env : translation_environment) (stmt_lst, call_lst) (actual : Ast.stmt) =
-	let s1 = chk_stmt function_table env actual
-	in let call_lst = (match actual with 
-	        Ast.Call(fname, _, _ ) -> let f_decl = 
-       		               try StringMap.find fname function_table with Not_found -> raise (Failure ("undefined function " ^ fname))
-	                       in f_decl::call_lst 
-	       | x -> call_lst (* do nothing *) ) 
-	    in (s1::stmt_lst,call_lst)
+				let s1 = chk_stmt function_table env actual
+    				in let call_lst =
+      					(match actual with 
+	        					Ast.Call(fname, _, _ ) -> 
+             						let f_decl = 
+       		               					try StringMap.find fname function_table
+                               				with Not_found -> raise (Failure ("undefined function " ^ fname))
+	                       			in f_decl::call_lst 
+	       						| x -> call_lst (* do nothing *) ) 
+           		in (s1::stmt_lst, call_lst)
 	
 	in let (new_stmt_list,call_lst) = 
-	List.fold_left (run_chk_stmt full_env) ([],[]) stmts  
+	List.fold_left (run_chk_stmt full_env) ([],[]) (List.rev stmts)  
 	
 	(*
 	let rec stmt_helper l cl = function
@@ -282,12 +532,12 @@ let check_func (env : translation_environment) (portin : (Ast.bus list)) (portou
 		| hd::tl -> let new_l = ( run_chk_stmt full_env cl hd )::l
 			in stmt_helper new_l tl
 	  in stmt_helper [] [] stmts *)
-	in (full_env, call_lst, new_stmt_list)
+    in (full_env, List.rev call_lst, List.rev new_stmt_list)
   
 
 (* Function table *)
 let func (env : translation_environment) (astfn : Ast.fdecl) tmp_ftable =
-  let func_scope = { parent = Some(env.scope); variables = [] }
+  let func_scope = { parent = Some(env.scope); variables = []; isIf = Array.make 2 false; isWhile = Array.make 1 false }
   in let func_env = {scope = func_scope }
     in let (chk_floc, chk_calls, chk_fbod) = check_func func_env astfn.portin astfn.portout astfn.body tmp_ftable
      in let fobj = {	pout = astfn.portout;
@@ -297,24 +547,27 @@ let func (env : translation_environment) (astfn : Ast.fdecl) tmp_ftable =
 			    fcalls = chk_calls; 
 			    fbod = chk_fbod; }           
         in let new_ftable = StringMap.add astfn.fname fobj tmp_ftable
-(* Un-comment to check if functions are added to the Function Table*)
-	in let _ = print_endline ("Added "^astfn.fname)
+(* Uncomment to check if functions are added to the Function Table*)
+	in let _ = print_endline ("Added function "^astfn.fname)
 	  in new_ftable
 
 
 (* Program transaltion Ast -> Sast *)
-let prog ((constlist : Ast.gdecl list), (funclist : Ast.fdecl list)) = 
+let prog ((constlist : Ast.gdecl list), (funclist : Ast.fdecl list)) =
+  let _ = print_endline "Starting prog..." in
   let clist = List.map (
     fun (gdecl : Ast.gdecl)-> 
       let Ast.Const(vbus, value) = gdecl
+      in
+      let dummy_env = {scope = { parent = None; variables = []; isIf = Array.make 2 false; isWhile = Array.make 1 false}} (*Workaround for while/if multiple assignment *)
         in
-      let _ = check_basn vbus value
+      let _ = check_basn dummy_env vbus (Num(value), Const, bit_required value)
       in (vbus, value, Const, Int_signal, true)
                           ) (List.rev constlist)
-(* Un-comment to print the list of constants name *)
+(* Un-commeList.rev clistList.rev clistnt to print the list of constants name *)
 (*in let name_list = List.map (fun (sgnl,_,_,_) -> sgnl.name) clist
 in let _ = List.iter print_endline name_list*)
-     in let global_scope = { parent = None; variables = List.rev clist}
+  in let global_scope = { parent = None; variables = List.rev clist; isIf = Array.make 2 false; isWhile = Array.make 1 false}
         in let global_env = { scope = global_scope }
 
 	   in let rec create_map mymap = function
@@ -323,5 +576,3 @@ in let _ = List.iter print_endline name_list*)
 							in create_map new_mymap tl
 	   in let ftable = create_map StringMap.empty (List.rev funclist)
 		in global_env, ftable
-
-

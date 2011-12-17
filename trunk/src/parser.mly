@@ -42,7 +42,8 @@ bdecl :
 				      size = fst $2;
 				      init = $4;
 				      unsigned = snd $2;
-				      async = $1 } }
+				      async = $1;
+                      isAssigned = Array.make (fst $2) false} }
 async_opt :
 		{ false }
 | ASYNC 	{ true }
@@ -97,7 +98,8 @@ adecl :
 					    	         size = fst $2;
 					    	         init = $7;
 					    	         unsigned = snd $2;
-					    	         async = $1 }, $5 ) }
+					    	         async = $1; 
+                                     isAssigned = Array.make ($5) false}, $5 ) } /* setting the bitfield to the size of the array and not the size of the bus*/
 
 stmt :
   LBRACE stmt_list RBRACE			{ Block(List.rev $2) }
@@ -164,5 +166,3 @@ actuals_list :
 actuals_rlist :
   other_expr				{ [$1] } 
 | actuals_list COMMA other_expr		{ $3 :: $1 }
-
-  

@@ -1,0 +1,9 @@
+int(9) c main (int(3) a) { 
+
+	  int(4) d = 2;
+	  int(3) e = 3;
+	  int(3) f = 4; 
+	  c = d * e * f ;
+
+
+}

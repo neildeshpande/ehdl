@@ -1,0 +1,8 @@
+int(4) c main (int(10) a, int(6) b ) { 
+       	
+	int(2) m[4]; 
+
+	// c indices going from lower to upper 	
+	c(0:1) = a(6:5) + b(4:3);  // should this pass the compiler 
+	c(3:2) = a(2:1);
+}

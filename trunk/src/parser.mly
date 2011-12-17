@@ -68,11 +68,13 @@ fdecl :
 
 /* no need for parens if just one output bus */
 out_port_list:
-   bdecl			{ [$1] }
+				{ []   }
+ | bdecl			{ [$1] }
  | LPAREN port_list RPAREN {$2}  
 
 port_list :
-  port_rlist		{ List.rev($1) }
+			{ [] }
+ | port_rlist		{ List.rev($1) }
 
 /* VHDL ports cannot be custom type */
 port_rlist :

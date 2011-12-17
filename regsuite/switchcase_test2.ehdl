@@ -1,0 +1,12 @@
+// Case statement not constant 
+
+
+int(2) res main (int(2) a, int(2) b) { 
+
+      int(2) c = 2; 
+
+      switch (c) { 
+      	     case (a + b) : res = a; 
+	     case b : res = b; 
+      }        
+}

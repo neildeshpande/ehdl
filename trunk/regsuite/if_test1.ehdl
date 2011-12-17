@@ -9,7 +9,7 @@ main(int(10) a, int(10) b, int(10) c, int(10) d, int(3) sel)  {
 	n = a;  
     }
 
-    // if without else 
+    // if without else !Inferred a latch by Synopsys
     if ( a < b ) { // less than 
        p = a; 
     }   

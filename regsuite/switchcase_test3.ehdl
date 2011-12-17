@@ -1,0 +1,13 @@
+int(2) res main (int(2) a, int(2) b) { 
+
+      int(2) c = 2; 
+
+      switch (c) { 
+      	     case 0 : 
+	     	  res = a;  
+
+	     case 1 :
+	     	  res = b; 
+		  POS(1);
+      }        
+}

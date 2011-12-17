@@ -1,3 +1,4 @@
+//Wrong array reference
 int(10) c main (int(3) a) { 
 
 	int(2) b[5]; 

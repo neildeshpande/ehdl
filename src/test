@@ -1,5 +1,7 @@
 #! /bin/bash
-./ehdl $1
+./ehdl ../regsuite/$1\.ehdl
+mv main.vhd $1\.vhd
+cp $1\.vhd ../sim/$1\.vhd
 rm -rf work
 vlib work
-vcom main.vhd
+vcom $1\.vhd

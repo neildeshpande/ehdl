@@ -1,0 +1,8 @@
+// type mismatch 
+int(2) c main (int(2) a) { 
+
+	  int(3) d = 0; 
+	  c = d;
+
+
+} 

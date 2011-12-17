@@ -166,7 +166,7 @@ let check_basn env vbus e1 =
  let _ = print_endline ("Checking variable "^vbus.name)
   in let (detail, t, size) = e1
    in match t with
-     Bus -> if size <= vbus.size
+     Bus -> if size = vbus.size
              then for i = 0 to vbus.size-1 do 			(* print_endline ("Checking bit " ^ string_of_int i); *)
        								if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
      								then raise (Error("Variable "^vbus.name^" has more than one driver"))
@@ -183,6 +183,9 @@ let check_basn env vbus e1 =
 					| Id(s) -> let b,_,_,_,_ = find_variable env.scope s in
 						     if b.size != vbus.size then raise(Error("size mismatch "^vbus.name))
 						     else()
+					| Subbus(b,strt,stop) -> if (abs (strt - stop)) != ((vbus.size)-1)
+								 then raise (Error("Size mismatch "^vbus.name))
+								 else ()
                     			| _ -> raise (Error("Illegal bus assignment: "^vbus.name))   )
    | _ -> raise (Error("Expected variable of type bus or const "^vbus.name))
 
@@ -200,7 +203,7 @@ let check_aasn env vbus size e1 e2 =
             					then raise (Error("Array index has more than one driver "^vbus.name))
           					  else vbus.isAssigned.(v) <- true;
     						  let (_,t_e2, size_e2) = e2
-       						  in if size_e2 > vbus.size
+       						  in if size_e2 != vbus.size
        				 			then raise(Error("Bus size mismatch for "^vbus.name))
            					  else ()
              			| Id(s) -> let b,_,_,_,_ = find_variable env.scope s in  
@@ -209,18 +212,32 @@ let check_aasn env vbus size e1 e2 =
             					then raise (Error("Array index has more than one driver "^vbus.name))
           					  else vbus.isAssigned.(b.init) <- true;
     						  let (_,t_e2, size_e2) = e2
-       						  in if size_e2 > vbus.size
+       						  in if size_e2 != vbus.size
        				 			then raise(Error("Bus size mismatch for "^vbus.name))
-           					  else () 
+           					  else ()
+				| Subbus(b,x,y) -> let rec addone p = (function
+							  0 -> p + 1
+							| n -> let newp = p + (int_of_float ( 2. ** (float_of_int n) ))
+								in addone newp (n-1)	)
+						   in let subn number strt stop = let r = abs (strt-stop)
+							in let ones = addone 0 r in (number land ones)
+						   in let init = subn b.init x y
+						   in if init > (size-1) then raise(Error("Array index out of bound "^vbus.name)) 
+            						else if (vbus.isAssigned.(init) && not(env.scope.isWhile.(0)))
+            						then raise (Error("Array index has more than one driver "^vbus.name))
+          					  	else vbus.isAssigned.(init) <- true;
+    						  let (_,t_e2, size_e2) = e2
+       						  in if size_e2 != vbus.size
+       				 			then raise(Error("Bus size mismatch for "^vbus.name))
+           					  else ()
 				| _ -> raise (Error("Array index is an expression of constants: "^vbus.name))  )
       | Bus -> if(size_e1 > bit_required size)
-               	then raise (Error("Array Index out of bound "^vbus.name))
-               else();
+               	then print_endline ("Warning: possible array index out of bound: "^vbus.name) else();
                for i = 0 to size-1 do if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
       										then raise (Error("Array index has more than one driver "^vbus.name))
                 					else vbus.isAssigned.(i) <- true done ; 
         		let (_,t_e2,size_e2) = e2
-        		in if size_e2 > vbus.size
+        		in if size_e2 != vbus.size
         			then raise (Error("Bus size mismatch for "^vbus.name))
         		   else()
                   			
@@ -259,29 +276,36 @@ let check_aasn env vbus size e1 e2 =
     
 
 let check_subbus vbus x y =
-  if x >= 0 && y <= vbus.size && x <= y then ()
+  let (x,y) = if x < y then (x,y) else (y,x)
+  in if x >= 0 && y <= vbus.size && x <= y then ()
   else raise (Error("Incorrect subbus dereference for "^vbus.name))
 
 let check_subasn env vbus x y e1 = 
-  let (detail, t, size) = e1
+  let (x,y) = if x < y then (x,y) else (y,x)
+  in let (detail, t, size) = e1
   in match t with 
     Bus -> let _ = check_subbus vbus x y
-           in if size <= y-x+1
+           in if size = y-x+1
            then for i = x to y do if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
            						then raise (Error("Variable "^vbus.name^" has more than one driver"))
                  				else vbus.isAssigned.(i) <- true done
-           else raise (Error("Size of expression is bigger than subbus width for "^vbus.name))
+           else raise (Error("Size of expression is different from subbus width for "^vbus.name))
     | Const -> (let _ = check_subbus vbus x y
                 in let _ = match detail with
                  			Num(v) -> if(bit_required v) > y-x+1
-                 						then raise (Error("Size of expression is bigger than subbus width for "^vbus.name))
-                     		  		else ()
-                    		| _ -> raise (Error("Const expected"))
-                      in  
-           		 		for i = x to y do if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
-           						then raise (Error("Variable "^vbus.name^" has more than one driver"))
-                 		else vbus.isAssigned.(i) <- true done
-               )
+                 				  then raise (Error("Size of expression is bigger than subbus width for "^vbus.name))
+                     		  		  else ()
+					| Id(s) ->  let b,_,_,_,_ = find_variable env.scope s in
+							if b.size != y-x+1
+							then raise (Error("Size of expression is different from subbus width for "^vbus.name))
+							else ()
+					| Subbus(_,strt,stop) -> if (abs (strt - stop)) != y-x
+								 then raise (Error("Size of expression is different from subbus width for "^vbus.name))
+								 else ()
+	                    		| _ -> raise (Error("Const expected"))
+                      in for i = x to y do if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
+           				   then raise (Error("Variable "^vbus.name^" has more than one driver"))
+                 			   else vbus.isAssigned.(i) <- true done)
       | _ -> raise (Error("Expected variable of type bus "^vbus.name))
       
 
@@ -304,7 +328,7 @@ let check_function_outvars env e vbus2 =
                                     		with Not_found ->
                                     			raise (Error("undeclared identifier " ^ vname))
                     in
-        				if vbus1.size >= vbus2.size then 
+        				if vbus1.size = vbus2.size then 
 								let _ = (for i = 0 to vbus1.size-1 
              								do if (vbus1.isAssigned.(i) && not(env.scope.isWhile.(0)))
                    								then raise(Error("Bus "^vbus1.name^" has more than one driver"))
@@ -312,7 +336,7 @@ let check_function_outvars env e vbus2 =
   						else raise(Error("Function output variable width mismatch "^vbus1.name^" "^vbus2.name))
                     )
       		| Subbus(vbus,x,y) -> (
-                              if(vbus2.size <= y-x+1)
+                              if(vbus2.size = y-x+1)
                               then (let _ = (for i = x to y
                                             do if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
                                             then raise (Error("Variable "^vbus.name^" has more than one driver"))
@@ -322,14 +346,12 @@ let check_function_outvars env e vbus2 =
         	|_ -> (raise(Error("Expected bus or subbus")))   )
          | Array -> ( match ed with
             			Barray(vbus, sz, exd) ->
-                           	if vbus.size < vbus2.size
+                           	if vbus.size != vbus2.size
                              		then raise (Error("Size mismatch in function output assignment "^vbus.name))
                             	  else let _ =
 					( match exd with
 						  Num(idx) -> (if (vbus.isAssigned.(idx) && not(env.scope.isWhile.(0)))
                                         			then raise (Error("variable "^vbus.name^" has more than one driver"))
-                                        			else if vbus.size < vbus2.size
-                                        			then raise (Error("Size mismatch in function output assignment "^vbus.name))
                                         			else vbus.isAssigned.(idx) <- true )
 						| Id(s) -> let gl_env = (match env.scope.parent with
 									  Some(g) -> g
@@ -338,8 +360,6 @@ let check_function_outvars env e vbus2 =
 							     (try let b,_,_,_,_ = find_variable gl_env s
 								in (if (vbus.isAssigned.(b.init) && not(env.scope.isWhile.(0)))
                                         			then raise (Error("variable "^vbus.name^" has more than one driver"))
-                                        			else if vbus.size < vbus2.size
-                                        			then raise (Error("Size mismatch in function output assignment "^vbus.name))
                                         			else vbus.isAssigned.(b.init) <- true )
 							     with Error(_) ->  raise (Error("Function input and output ports must be static: " ^vbus.name)) )
                            			| _ -> raise (Error("Function input and output ports must be static: " ^vbus.name))  )
@@ -348,8 +368,8 @@ let check_function_outvars env e vbus2 =
                                               				 do if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
                                                    			 then raise (Error("Variable "^vbus.name^" has more than one driver"))
                                               				 else (vbus.isAssigned.(i) <- true) done ) ) in true *)
-           			|_ -> raise(Error("Expected type of variable Barray "))           
-   | _ -> raise (Error("function assignment must be to a bus or an array")) )
+           			|_ -> raise(Error("Expected type of variable Barray "))        )   
+   | _ -> raise (Error("function assignment must be to a bus or an array")) 
     
      
 let check_function_invars e vbus1 =

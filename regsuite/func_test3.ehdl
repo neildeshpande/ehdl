@@ -1,0 +1,13 @@
+int(2) c adder ( int(2) a , int(2) b ) { 
+       c = a + b;
+}
+
+
+
+int(2) d main ( int(2) a, int(2) b ) { 
+
+
+       (d) = adder(a,d); 
+
+
+}

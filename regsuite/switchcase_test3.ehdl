@@ -1,3 +1,4 @@
+//Reject: POS inside switch
 int(2) res main (int(2) a, int(2) b) { 
 
       int(2) c = 2; 

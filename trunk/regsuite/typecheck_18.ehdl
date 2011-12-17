@@ -1,0 +1,12 @@
+int(4) c main (int(10) a, int(6) b ) { 
+       	
+	int(2) m[4]; 
+	int(2) a ; 
+	int(2) b; 	
+
+	m[a+b] = 2; // expression inside array indices not allowed
+	
+	c(1:0) = a(6:5) + b(4:3);  
+	c(3:2) = a(2:1);
+}
+

@@ -27,7 +27,6 @@ type stmt =
 | Expr of expr
 | Pos of expr		(*Insert a rule that avoids having Pos inside if else!*)
 | If of expr * stmt * stmt 
-| For of expr * expr * expr * stmt 
 | While of expr * stmt
 | Switch of expr *  (expr * stmt) list 	(* switch (expr) {...} *)
 | Call of string * (expr list) * (expr list) 

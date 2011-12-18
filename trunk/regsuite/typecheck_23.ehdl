@@ -1,0 +1,8 @@
+int(3) c main (int(2) a, int(2) b) { 
+       
+       // assigning to input port 
+       a = b; 
+       
+       
+
+} 

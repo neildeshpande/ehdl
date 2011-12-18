@@ -64,8 +64,7 @@ and expression = expr_detail * types * int
 and s_stmt = 
     Block of s_stmt list
   | Expr of expression
-  | If of expr_detail * s_stmt * s_stmt
-  | For of expr_detail * expr_detail * expr_detail * s_stmt 
+  | If of expr_detail * s_stmt * s_stmt 
   | While of expr_detail * s_stmt
   | Pos of expr_detail
   | Switch of expr_detail * ((expr_detail * s_stmt)	list)
@@ -464,12 +463,6 @@ let rec chk_stmt function_table env = function
     let stmt_2 = chk_stmt function_table env s2
     in let _ = List.for_all2 pred (env.scope.variables) (temp.scope.variables)
       in If(e1,  stmt_1, stmt_2)
-  | Ast.For(e1, e2, e3, s1) ->
-    	let e1, t1, _= chk_expr function_table env e1
-     	and e2, t2, _= chk_expr function_table env e2
-     	and e3, t3, _= chk_expr function_table env e3
-      in (* check_conditional e1 t1;*)
-    For(e1, e2, e3, chk_stmt function_table env s1)
   | Ast.While(e1, s1) ->
     	let _ = env.scope.isWhile.(0) <- true in
     	let e1, t1, _= chk_expr function_table env e1

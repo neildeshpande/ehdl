@@ -1,0 +1,12 @@
+// four to one mux 
+int(8) z main (int(8) a, int(8) b, int(8) c, int(8) d, uint(2) sel ) { 
+       switch ( sel ) { 
+
+       	      case 0: z = a;
+	      case 1: z = b;
+	      case 2: z = c;
+	      default:z = d; 
+
+       }
+
+}

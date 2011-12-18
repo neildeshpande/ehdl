@@ -109,7 +109,6 @@ stmt :
 | POS LPAREN other_expr RPAREN SEMI			{ Pos($3) } 
 | IF LPAREN other_expr RPAREN stmt %prec NOELSE 	{ If($3, $5, Block([]))}
 | IF LPAREN other_expr RPAREN stmt ELSE stmt    	{ If($3,$5,$7) }
-| FOR LPAREN asn_expr SEMI other_expr SEMI other_expr RPAREN stmt  { For($3,$5,$7,$9) }
 | WHILE LPAREN other_expr RPAREN stmt			{ While($3, $5) }
 | SWITCH LPAREN other_expr RPAREN LBRACE case_stmt case_list RBRACE{ Switch($3,$6::(List.rev $7)) }
 /* Enforcing at least one case_stmt in the parser so no need to do it later */ 
@@ -131,7 +130,7 @@ other_expr :
 | other_expr PLUS other_expr			{ Binop($1, Add, $3) }
 | other_expr MINUS other_expr			{ Binop($1, Sub, $3) }
 | other_expr TIMES other_expr			{ Binop($1, Mul, $3) }
-| other_expr DIVIDE other_expr			{ Binop($1, Div, $3) }
+| other_expr DIVIDE other_expr			{ Binop($1, Div, $3) } // get rid of divide and modulo 
 | other_expr MODULO other_expr			{ Binop($1, Mod, $3) }
 | other_expr LT other_expr			{ Binop($1, Lt, $3) }
 | other_expr GT other_expr			{ Binop($1, Gt, $3) }

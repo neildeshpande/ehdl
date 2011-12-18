@@ -631,7 +631,7 @@ in let rec condeval e env asn_map cc= match e with
 	   in  let s = str ^ fdecl.fid ^ "_" ^ label ^ " : " ^ fdecl.fid ^ " port map (\n\t\tclk => clk,\n \t\trst => rst" 
 	   	   
 	    in let s,_,_ = List.fold_left f (s,(List.rev in_list),asn_map) fdecl.pin
-	    in let s,_,asn_map = List.fold_left f (s,out_list,asn_map) fdecl.pout 
+	    in let s,_,asn_map = List.fold_left f (s,(List.rev out_list),asn_map) fdecl.pout 
 	    in ({sens_list=env.sens_list;}, s ^ ");\n\n",asn_map,cc) )
     and translate_case left (env,s,asn_map,cc) (e,stmt) = 
 			(*Check there is no POS*)

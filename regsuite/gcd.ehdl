@@ -1,3 +1,4 @@
+//gcd
 int(8) c main(int(8) a, int(8) b){
 
 while (a != b) {

@@ -83,8 +83,8 @@ d <= d_r0;
 adder_d : adder port map (
 		clk => clk,
  		rst => rst,
-		a => d_r0,
-		b => a_r0,
+		a => a_r0,
+		b => d_r0,
 		c => d_r0);
 
 

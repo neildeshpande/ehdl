@@ -94,15 +94,15 @@ g <= g_r2;
 adder_ar0 : adder port map (
 		clk => clk,
  		rst => rst,
-		a => f_r0,
-		b => e_r0,
+		a => e_r0,
+		b => f_r0,
 		c => ar_r0(0));
 
 adder_aren : adder port map (
 		clk => clk,
  		rst => rst,
-		a => f_r0,
-		b => ar_r0(0),
+		a => ar_r0(0),
+		b => f_r0,
 		c => ar_r0(ieee.std_logic_unsigned.conv_integer(en_r0)));
 
 		ar_r0(2)  <= ieee.std_logic_arith.conv_std_logic_vector(2,32);
@@ -110,8 +110,8 @@ adder_aren : adder port map (
 adder_c : adder port map (
 		clk => clk,
  		rst => rst,
-		a => f_r0,
-		b => ieee.std_logic_arith.conv_std_logic_vector(1,32),
+		a => ieee.std_logic_arith.conv_std_logic_vector(1,32),
+		b => f_r0,
 		c => c_r0);
 
 --Pos--
@@ -140,8 +140,8 @@ end process;
 adder_d : adder port map (
 		clk => clk,
  		rst => rst,
-		a => e_r1(31 downto 0),
-		b => f_r1,
+		a => f_r1,
+		b => e_r1(31 downto 0),
 		c => d_r1);
 
 

@@ -1,0 +1,13 @@
+int(2) a main (int(2) c) { 
+       
+       // assigning to input 
+       int(2) d; 
+       int(2) e;
+
+       d = e; // short circuit ?  
+       e = d; 
+       
+       a = c;
+
+
+} 

@@ -1,0 +1,12 @@
+uint(8) c main(uint(8) n) { 
+
+       int(16) fact = 1; 
+       while (n > 1) { 
+           fact = fact(7:0) * n; 
+           n = n - 1;        	    
+       }
+       
+       POS(n==1);
+       c = fact(7:0); 
+
+}

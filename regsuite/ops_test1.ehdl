@@ -1,0 +1,30 @@
+int(2) res main(int(2) a, int(2) b,int(2) c, int(3) sel ) {  
+
+       // Test case 1 : Bin Ops  
+       // Covers binary, unary and bitwise operators 
+       // TODO: Unary minus    
+
+
+       switch ( sel ) { 
+       	      
+	      case 0: res = a+b+c; // binary ops  
+	      case 1: res = a-b+c; // TODO : multiple a's 
+	      case 2: res = c + a; 
+	      case 3: res = a && b; // bitwise ands 
+	      case 4: res = a || b; // bitwise ors 
+	      case 5: res = a ^ b; 
+	      case 6: res = a << b; 
+	      case 7: res = a >> b; 	   
+	      default: res = a + !b + 1; // invert  	     
+
+       }
+}
+
+
+
+
+
+
+
+
+

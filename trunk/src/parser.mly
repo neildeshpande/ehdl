@@ -68,7 +68,7 @@ fdecl :
 
 /* no need for parens if just one output bus */
 out_port_list:
-				{ []   }
+				{ raise (Failure("Empty output port list"))   }
  | bdecl			{ [$1] }
  | LPAREN port_list RPAREN {$2}  
 

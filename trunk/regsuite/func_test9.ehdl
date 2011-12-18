@@ -1,3 +1,4 @@
+//Good case
 int(4) b func2 ( int(2) a ) { 
 
        b(1:0) = a;
@@ -13,7 +14,6 @@ int(4) c func1 ( int(2) a , int(4) b ) {
 
 
 
-// not assigning all the input args 
 int(4) d main ( int(2) a, int(4) b, int(2) c ) { 
 
        (d) = func1(a,b);  

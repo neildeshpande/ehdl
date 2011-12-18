@@ -49,7 +49,13 @@ let port_gen cname cobj =
 let num_to_slv v size =
    try let _ = int_of_string v
 	in "ieee.std_logic_arith.conv_std_logic_vector("^v^","^(string_of_int size)^")"
-   with Failure(s) -> v	     
+   with Failure(s) -> v	
+
+(*Auxiliary function: adds conv_integer *)
+let to_int v =
+   try let _ = int_of_string v
+	in v
+   with Failure(s) -> "conv_integer("^v^")"
 	     
 
 let translate (genv, ftable) =
@@ -93,6 +99,7 @@ let rec weval e env asn_map cc = match e with
     | Binop(e1,op,e2) -> 
      let v11,v12,_, _ = weval e1 env asn_map cc in let v21, v22, _, _ = weval e2 env asn_map cc
 	in let opt1 = "conv_integer(" in let opt2 = ") " (*mod and div are not synthesizable*)
+	in let shift_v21 = to_int v21 in let shift_v22 = to_int v22
      in (match op with 
 	 Add  -> "(("^v11^")" ^ " + " ^ "("^v21^"))","(("^v12^")" ^ " + " ^ "("^v22^"))", env, asn_map
        | Sub  -> "(("^v11^")" ^ " - " ^ "("^v21^"))","(("^v12^")" ^ " - " ^ "("^v22^"))" , env, asn_map
@@ -108,8 +115,8 @@ let rec weval e env asn_map cc = match e with
        | Or   -> "(("^v11^")" ^ " or " ^ "("^v21^"))","(("^v12^")" ^ " or " ^ "("^v22^"))", env, asn_map
        | And  -> "(("^v11^")" ^ " and " ^ "("^v21^"))","(("^v12^")" ^ " and " ^ "("^v22^"))", env, asn_map
        | Xor  -> "(("^v11^")" ^ " xor  " ^ "("^v21^"))","(("^v12^")" ^ " xor  " ^ "("^v22^"))", env, asn_map
-       | Shl  -> "(to_stdlogicvector( to_bitvector("^v11^")" ^ " sll " ^ "("^v21^") ))","(to_stdlogicvector( to_bitvector("^v12^")" ^ " sll " ^ "("^v22^") ))", env, asn_map
-       | Shr  -> "(to_stdlogicvector( to_bitvector("^v11^")" ^ " srl " ^ "("^v21^") ))","(to_stdlogicvector( to_bitvector("^v12^")" ^ " srl " ^ "("^v22^") ))", env, asn_map
+       | Shl  -> "(to_stdlogicvector( to_bitvector("^v11^")" ^ " sll " ^ "("^shift_v21^") ))","(to_stdlogicvector( to_bitvector("^v12^")" ^ " sll " ^ "("^shift_v22^") ))", env, asn_map
+       | Shr  -> "(to_stdlogicvector( to_bitvector("^v11^")" ^ " srl " ^ "("^shift_v21^") ))","(to_stdlogicvector( to_bitvector("^v12^")" ^ " srl " ^ "("^shift_v22^") ))", env, asn_map
        | x    -> raise (Failure ("ERROR: Invalid Binary Operator ")) )
    | Basn(i, e1) -> let asn_map = update_asn (Basn(i,Id(i.name))) asn_map
 		in let v1, v2, _, _ = weval e1 env asn_map cc
@@ -170,6 +177,7 @@ in let rec wcondeval e env asn_map cc= match e with
     | Binop(e1,op,e2) -> 
      let v11,v12, _, _ = weval e1 env asn_map cc in let v21,v22,_ , _ = weval e2 env asn_map cc
 	in let opt1 = "conv_integer(" in let opt2 = ") " (*mod and div are not synthesizable*)
+	in let shift_v21 = to_int v21 in let shift_v22 = to_int v22
      in (match op with 
 	 Add  -> "(("^v11^")" ^ " + " ^ "("^v21^"))" ^ " /= 0 ","(("^v12^")" ^ " + " ^ "("^v22^"))" ^ " /= 0 ", env, asn_map
        | Sub  -> "(("^v11^")" ^ " - " ^ "("^v21^"))" ^ " /= 0 ","(("^v12^")" ^ " - " ^ "("^v22^"))" ^ " /= 0 ", env, asn_map
@@ -183,8 +191,8 @@ in let rec wcondeval e env asn_map cc= match e with
        | Eq   -> "(("^v11^")" ^ " = " ^ "("^v21^"))","(("^v12^")" ^ " = " ^ "("^v22^"))", env, asn_map
        | Neq  -> "(("^v11^")" ^ " /= " ^ "("^v21^"))","(("^v12^")" ^ " /= " ^ "("^v22^"))", env, asn_map
        | Xor  -> "(("^v11^")" ^ " xor  " ^ "("^v21^"))" ^ " /= 0 ","(("^v12^")" ^ " xor  " ^ "("^v22^"))" ^ " /= 0 ", env, asn_map
-       | Shl  -> "(to_stdlogicvector( to_bitvector("^v11^")" ^ " sll " ^ "("^v21^") ))" ^ " /= 0 ","(to_stdlogicvector( to_bitvector("^v12^")" ^ " sll " ^ "("^v22^") ))" ^ " /= 0 ", env, asn_map
-       | Shr  -> "(to_stdlogicvector( to_bitvector("^v11^")" ^ " srl " ^ "("^v21^") ))" ^ " /= 0 ","(to_stdlogicvector( to_bitvector("^v12^")" ^ " srl " ^ "("^v22^") ))" ^ " /= 0 ", env, asn_map
+       | Shl  -> "(to_stdlogicvector( to_bitvector("^v11^")" ^ " sll " ^ "("^shift_v21^") ))" ^ " /= 0 ","(to_stdlogicvector( to_bitvector("^v12^")" ^ " sll " ^ "("^shift_v22^") ))" ^ " /= 0 ", env, asn_map
+       | Shr  -> "(to_stdlogicvector( to_bitvector("^v11^")" ^ " srl " ^ "("^shift_v21^") ))" ^ " /= 0 ","(to_stdlogicvector( to_bitvector("^v12^")" ^ " srl " ^ "("^shift_v22^") ))" ^ " /= 0 ", env, asn_map
        | Or   -> let v11,v12, _, _ = wcondeval e1 env asn_map cc in let v21,v22, _, _ = wcondeval e2 env asn_map cc
 			in "(("^v11^")" ^ " or " ^ "("^v21^"))","(("^v12^")" ^ " or " ^ "("^v22^"))", env, asn_map
        | And  -> let v11,v12, _, _ = wcondeval e1 env asn_map cc in let v21,v22, _, _ = wcondeval e2 env asn_map cc
@@ -379,6 +387,7 @@ in {sens_list=[]},wstr,curr_asn_map,curr_cc
     | Binop(e1,op,e2) -> 
      let v1, env, _ = eval e1 env asn_map cc in let v2, env, _ = eval e2 env asn_map cc
 	in let opt1 = "conv_integer(" in let opt2 = ") " (*mod and div are not synthesizable*)
+	in let shift_v2 = to_int v2
      in (match op with 
 	 Add  -> "(("^v1^")" ^ " + " ^ "("^v2^"))"
        | Sub  -> "(("^v1^")" ^ " - " ^ "("^v2^"))" 
@@ -394,8 +403,8 @@ in {sens_list=[]},wstr,curr_asn_map,curr_cc
        | Or   -> "(("^v1^")" ^ " or " ^ "("^v2^"))"
        | And  -> "(("^v1^")" ^ " and " ^ "("^v2^"))"
        | Xor  -> "(("^v1^")" ^ " xor  " ^ "("^v2^"))"
-       | Shl  -> "(to_stdlogicvector( to_bitvector("^v1^")" ^ " sll " ^ "("^v2^") ))"
-       | Shr  -> "(to_stdlogicvector( to_bitvector("^v1^")" ^ " srl " ^ "("^v2^") ))"
+       | Shl  -> "(to_stdlogicvector( to_bitvector("^v1^")" ^ " sll " ^ "("^shift_v2^") ))"
+       | Shr  -> "(to_stdlogicvector( to_bitvector("^v1^")" ^ " srl " ^ "("^shift_v2^") ))"
        | x    -> raise (Failure ("ERROR: Invalid Binary Operator ")) ), env, asn_map
    | Basn(i, e1) -> let asn_map = update_asn (Basn(i,Id(i.name))) asn_map
 		in let v1, env, _ = eval e1 env asn_map cc
@@ -453,6 +462,7 @@ in let rec condeval e env asn_map cc= match e with
     | Binop(e1,op,e2) -> 
      let v1, env, _ = eval e1 env asn_map cc in let v2, env, _ = eval e2 env asn_map cc
 	in let opt1 = "conv_integer(" in let opt2 = ") " (*mod and div are not synthesizable*)
+	in let shift_v2 = to_int v2
      in (match op with 
 	 Add  -> "(("^v1^")" ^ " + " ^ "("^v2^"))" ^ " /= 0 "
        | Sub  -> "(("^v1^")" ^ " - " ^ "("^v2^"))" ^ " /= 0 "
@@ -466,8 +476,8 @@ in let rec condeval e env asn_map cc= match e with
        | Eq   -> "(("^v1^")" ^ " = " ^ "("^v2^"))"
        | Neq  -> "(("^v1^")" ^ " /= " ^ "("^v2^"))"
        | Xor  -> "(("^v1^")" ^ " xor  " ^ "("^v2^"))" ^ " /= 0 "
-       | Shl  -> "(to_stdlogicvector( to_bitvector("^v1^")" ^ " sll " ^ "("^v2^") ))" ^ " /= 0 "
-       | Shr  -> "(to_stdlogicvector( to_bitvector("^v1^")" ^ " srl " ^ "("^v2^") ))" ^ " /= 0 "
+       | Shl  -> "(to_stdlogicvector( to_bitvector("^v1^")" ^ " sll " ^ "("^shift_v2^") ))" ^ " /= 0 "
+       | Shr  -> "(to_stdlogicvector( to_bitvector("^v1^")" ^ " srl " ^ "("^shift_v2^") ))" ^ " /= 0 "
        | Or   -> let v1, env, _ = condeval e1 env asn_map cc in let v2, env, _ = condeval e2 env asn_map cc
 			in "(("^v1^")" ^ " or " ^ "("^v2^"))"
        | And  -> let v1, env, _ = condeval e1 env asn_map cc in let v2, env, _ = condeval e2 env asn_map cc

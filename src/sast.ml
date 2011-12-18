@@ -132,9 +132,7 @@ let check_types e1 op e2 =
                 | Mul                               -> size_1 + size_2
                 | Lt | Gt | Lte | Gte | Eq | Neq    -> 1
                 | Shl | Shr                         -> if type_1 = Const then raise(Error("Bit Shift operators cant be used on Constants"))
-                                           		else let ed2, _, _ = e2 in (match ed2 with
-								  Num(v) -> size_1
-								| _ -> raise(Error("Right operand of Bit Shift operators must be a number!")) )
+                                           		else size_1
                 | Add|Sub|Mod|Div                   -> Pervasives.max size_1 size_2
                 | _                                 -> raise(Error("Unary operators passed to binop"))
 

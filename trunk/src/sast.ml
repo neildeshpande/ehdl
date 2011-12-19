@@ -239,11 +239,15 @@ let check_aasn env vbus size e1 e2 =
                for i = 0 to size-1 do if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
       										then raise (Error("Array index has more than one driver "^vbus.name))
                 					else vbus.isAssigned.(i) <- true done ; 
-        		let (_,t_e2,size_e2) = e2
-        		in if size_e2 != vbus.size
-        			then raise (Error("Bus size mismatch for "^vbus.name))
-        		   else()
-                  			
+        		let (ed2,t_e2,size_e2) = e2
+			in (match t_e2 with
+				  Const -> (match ed2 with
+						  Num(v) -> if size_e2 > vbus.size
+       				 			then raise(Error("Bus size mismatch for "^vbus.name)) else ()
+						| _ -> if size_e2 != vbus.size
+       				 			then raise(Error("Bus size mismatch for "^vbus.name)) else ()	)
+				| _ ->	if size_e2 != vbus.size
+       				 	then raise(Error("Bus size mismatch for "^vbus.name)) else ()	)                  			
       | _ -> raise (Error("Array index should be const or bus "^vbus.name)) 
         
 (*let check_aasn env vbus size e1 e2 = 

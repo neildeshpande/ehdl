@@ -18,7 +18,7 @@ architecture e_main of  main is
 
 
 
-type a_type is array (0 to 99) of std_logic_vector(0 downto 0);
+type a_type is array (0 to 199) of std_logic_vector(0 downto 0);
 signal a_r0, a_r2, a_r1 : a_type := (others => ieee.std_logic_arith.conv_std_logic_vector(0,1));
 signal sig_r0, sig_r2, sig_r1 : std_logic_vector(0 downto 0) := ieee.std_logic_arith.conv_std_logic_vector(0,1);
 signal n_r0, n_r2, n_r1 : std_logic_vector(31 downto 0) := ieee.std_logic_arith.conv_std_logic_vector(2,32);

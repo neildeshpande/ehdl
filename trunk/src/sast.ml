@@ -133,7 +133,7 @@ let check_types e1 op e2 =
                 | Lt | Gt | Lte | Gte | Eq | Neq    -> 1
                 | Shl | Shr                         -> if type_1 = Const then raise(Error("Bit Shift operators cant be used on Constants"))
                                            		else size_1
-                | Add|Sub|Mod|Div                   -> Pervasives.max size_1 size_2
+                | Add|Sub	                    -> Pervasives.max size_1 size_2
                 | _                                 -> raise(Error("Unary operators passed to binop"))
 
 let check_switchable e1 t1 = 

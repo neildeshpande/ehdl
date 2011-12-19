@@ -10,8 +10,6 @@ rule token = parse
 | '+' 					{ PLUS }
 | '-' 					{ MINUS }
 | '*' 					{ TIMES }
-| '/' 					{ DIVIDE }
-| '%' 					{ MODULO }
 | '<'					{ LT }
 | '>' 					{ GT }
 | "<="					{ LTE }

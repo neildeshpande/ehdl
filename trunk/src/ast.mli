@@ -1,4 +1,4 @@
-type operator = Add | Sub | Mul | Div | Mod| Lt | Gt | Lte | Gte | Eq | Neq | Or | And | Xor | Shl | Shr | Not | Umin
+type operator = Add | Sub | Mul | Lt | Gt | Lte | Gte | Eq | Neq | Or | And | Xor | Shl | Shr | Not | Umin
 
 type bus = {name : string; size : int; init : int; async : bool; isAssigned : bool array}
 

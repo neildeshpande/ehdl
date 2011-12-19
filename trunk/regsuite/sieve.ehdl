@@ -1,0 +1,29 @@
+/* emits the first m prime numbers then holds the 
+value at the m-th prime number */
+int(32) primes main (int(32) m) { 
+	
+	int(1) a[100]; 
+	int(1) sig; 
+	int(32) n = 2;
+	int(32) k = 2; 
+	while (n <= m) {
+	      
+	    if ((a[n] == 0) && (k <= m))  {
+	      	 if (k == n) {   
+	      	    sig = 1;
+		 } else { 
+		   a[k] = 1; 
+		 } 
+		 k = k + n;    
+	    }else { 
+		 sig = 0; 
+		 n = n + 1;
+		 k = n + 1;		      
+	    } // else      
+	   
+      	} // while 
+	      
+	POS(sig); 
+	primes = n;      
+
+}

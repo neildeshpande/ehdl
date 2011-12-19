@@ -122,6 +122,7 @@ other_expr :
 | ID						{ Id($1) }
 | ID LBRACKET other_expr RBRACKET		{ Barray($1, $3) }
 | ID LPAREN NUM COLON NUM RPAREN		{ Subbus($1, $3, $5) }
+| ID LPAREN NUM RPAREN				{ Subbus($1, $3, $3) }
 | MINUS other_expr %prec UMINUS			{ Unop(Umin, $2) }
 | NOT other_expr %prec NOT			{ Unop(Not, $2) }
 | other_expr PLUS other_expr			{ Binop($1, Add, $3) }
@@ -145,6 +146,7 @@ asn_expr :
 | ID ASN other_expr			{ Basn($1, $3) }
 | ID LBRACKET other_expr RBRACKET ASN other_expr { Aasn($1, $3, $6) }
 | ID LPAREN NUM COLON NUM RPAREN ASN other_expr {Subasn($1, $3, $5, $8)}
+| ID LPAREN NUM RPAREN ASN other_expr		{Subasn($1, $3, $3, $6)}
 
 case_list :
  { [] : (expr * stmt) list} 

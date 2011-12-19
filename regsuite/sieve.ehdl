@@ -1,8 +1,8 @@
-/* emits the first m prime numbers then holds the 
-value at the m-th prime number */
+/* emits the first m prime numbers. m must be less than 200
+as there is bounded buffer that is being used */
 int(32) primes main (int(32) m) { 
 	
-	int(1) a[100]; 
+	int(1) a[200]; 
 	int(1) sig; 
 	int(32) n = 2;
 	int(32) k = 2; 
@@ -19,9 +19,9 @@ int(32) primes main (int(32) m) {
 		 sig = 0; 
 		 n = n + 1;
 		 k = n + 1;		      
-	    } // else      
+	    }      
 	   
-      	} // while 
+      	}  
 	      
 	POS(sig); 
 	primes = n;      

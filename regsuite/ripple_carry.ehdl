@@ -11,18 +11,18 @@
 	int(1) sum[4];
 	int(1) carry[4];
 
-	(sum[0], carry[0]) = fulladder(a(0:0),b(0:0),carryin);
+	(sum[0], carry[0]) = fulladder(a(0),b(0),carryin);
 	POS(1);
-	(sum[1], carry[1]) = fulladder(a(1:1),b(1:1),carry[0]);
+	(sum[1], carry[1]) = fulladder(a(1),b(1),carry[0]);
 	POS(1);
-	(sum[2], carry[2]) = fulladder(a(2:2),b(2:2),carry[1]);
+	(sum[2], carry[2]) = fulladder(a(2),b(2),carry[1]);
 	POS(1);
-	(sum[3], carry[3]) = fulladder(a(3:3),b(3:3),carry[2]);
+	(sum[3], carry[3]) = fulladder(a(3),b(3),carry[2]);
 	POS(1);
 
-	s(3:3) = sum[3];
-	s(2:2) = sum[2];
-	s(1:1) = sum[1];
-	s(0:0) = sum[0];
+	s(3) = sum[3];
+	s(2) = sum[2];
+	s(1) = sum[1];
+	s(0) = sum[0];
 	overflow = carry[3];
 }

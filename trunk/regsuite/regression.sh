@@ -3,7 +3,7 @@
 alltests="adder choose dumb_inv func_test3 func_test9 gcd \
 if_test1 if_test3 invoke_function subbus switchcase_test1 two_bit_alu \
 switchcase_test1 ops_test1 factorial four_one_mux priority_encoder \
-trafficlight fibonacci uminus ripple_carry"
+trafficlight fibonacci uminus ripple_carry sieve"
 
 
 usage="\nregression.sh all \nOR \nregression.sh if_test1 if_test2 ...\n"

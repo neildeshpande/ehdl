@@ -187,6 +187,13 @@ let check_basn env vbus e1 =
 								 then raise (Error("Size mismatch "^vbus.name))
 								 else ()
                     			| _ -> raise (Error("Illegal bus assignment: "^vbus.name))   )
+   | Array -> for i = 0 to vbus.size-1 do if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
+     					  then raise (Error("Variable "^vbus.name^" has more than one driver"))
+     					  else vbus.isAssigned.(i) <- true done;
+				(match detail with
+					Barray(b,_,_) -> if b.size != vbus.size then raise(Error("size mismatch "^vbus.name))
+							else()
+					| _ ->	raise (Error("Expected variable of type bus or const "^vbus.name)) )
    | _ -> raise (Error("Expected variable of type bus or const "^vbus.name))
 
 
@@ -302,6 +309,15 @@ let check_subasn env vbus x y e1 =
                       in for i = x to y do if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
            				   then raise (Error("Variable "^vbus.name^" has more than one driver"))
                  			   else vbus.isAssigned.(i) <- true done)
+      | Array -> (let _ = check_subbus vbus x y
+           	in if size = y-x+1
+           	then for i = x to y do if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
+           						then raise (Error("Variable "^vbus.name^" has more than one driver"))
+                 				else vbus.isAssigned.(i) <- true done
+           	else raise (Error("Size of expression is different from subbus width for "^vbus.name))	);
+		(match detail with
+			Barray(b,_,_) -> ()
+			| _ ->	raise (Error("Expected variable of type bus or const "^vbus.name)) )
       | _ -> raise (Error("Expected variable of type bus "^vbus.name))
       
 

@@ -1,0 +1,8 @@
+int(32) d main ( int(32) a, int(32) b ) { 
+	int(32) c; 
+	(c) = adder(a,b); 
+	
+	d = c + 2;
+
+
+}

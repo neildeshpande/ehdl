@@ -1,4 +1,4 @@
-uint(8) c main(uint(8) n) { 
+int(8) c main(int(8) n) { 
 
        int(16) fact = 1; 
        while (n > 1) { 

@@ -1,5 +1,5 @@
 // priority encoder 
-uint(3) code main ( uint(8) sel ) { 
+int(3) code main ( int(8) sel ) { 
 
 	if ( sel(0:0) ) { 
 	   code = 0; 

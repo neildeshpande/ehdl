@@ -1,17 +1,17 @@
-const uint(2) HG = 0; 
-const uint(2) HY = 1; 
-const uint(2) FG = 2; 
-const uint(2) FY = 3; 
-const uint(8) YDuration = 2; 
-const uint(8) FDuration = 3;
+const int(2) HG = 0; 
+const int(2) HY = 1; 
+const int(2) FG = 2; 
+const int(2) FY = 3; 
+const int(8) YDuration = 2; 
+const int(8) FDuration = 3;
 
 
 (int(1) hwGreen, int(1) hwYellow, int(1) farmGreen, int(1) farmYellow) 
 main ( int(1) car ) { 
      
-     uint(2) state;  
-     uint(8) yCntr; 
-     uint(8) fCntr;
+     int(2) state;  
+     int(8) yCntr; 
+     int(8) fCntr;
      
      state = HG; 
      while (1) { 

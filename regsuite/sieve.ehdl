@@ -2,7 +2,7 @@
 as there is bounded buffer that is being used */
 int(32) primes main (int(32) m) { 
 	
-	int(1) a[200]; 
+	int(32) a[200]; 
 	int(1) sig; 
 	int(32) n = 2;
 	int(32) k = 2; 

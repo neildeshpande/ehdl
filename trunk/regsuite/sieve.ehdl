@@ -1,4 +1,4 @@
-/* emits the first m prime numbers. m must be less than 200
+/* emits all the prime numbers less than m. m must be less than 200
 as there is bounded buffer that is being used */
 int(32) primes main (int(32) m) { 
 	

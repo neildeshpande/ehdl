@@ -7,6 +7,7 @@ module CompMap = Map.Make(struct
   let compare x y = Pervasives.compare x y
 end)
 
+exception ErrorS of string 
 
 type s_env = {
     sens_list : string list;  
@@ -745,18 +746,38 @@ in let rec condeval e env asn_map cc= match e with
   in let components = StringMap.fold create_component ftable CompMap.empty
   in components 
 
-let print_programs filename components =
-  (* need to iterate over all components, not just main, 
-     maybe components should be a list *)
-  (* let s = CompMap.find "main" components *) 
+let print_programs outfile components =  
   let s = CompMap.fold ( fun k d s -> s ^ d ) components ""   
-  (*in let out_channel = open_out (filename ^ ".vhd" ) *) 
-    in let out_channel = open_out "main.vhd"
+    in let out_channel = open_out outfile
      in output_string out_channel s  
 
 
 let _ =
-let in_channel = open_in Sys.argv.(1) in
+let usage = "Usage : ehdl [-o outfile] infile1 infile2 ...\n" in 
+let _ = if Array.length Sys.argv < 2 then raise (ErrorS ("input files not provided!" ^  usage) ) in 
+let j = if Sys.argv.(1) = "-o" then 3 else 1 in 
+let outfile =    
+    (if Sys.argv.(1) = "-o" then 
+        if ( Array.length Sys.argv < 4 ) then raise (ErrorS ("-o should follow an outfile and one or more infiles! \n" ^  usage ^ "\n")  )
+        else Sys.argv.(2)
+     else "main.vhd") in 
+let temp_file = "temp.txt" in      
+let temp_out = open_out temp_file in   
+let _ =   
+for i = j to Array.length Sys.argv - 1 do
+    let in_channel =
+    try 
+         open_in Sys.argv.(i) 
+    with e -> raise(ErrorS ("Failed to open " ^ Sys.argv.(i)))
+    in
+    let rec readfile infile =
+        try let line = input_line infile in line ^ "\n" ^ (readfile infile)
+        with End_of_file -> "" in
+        output_string temp_out ((readfile in_channel) ^ "\n\n") 
+done in 
+let _ = close_out temp_out in 
+let in_channel = open_in temp_file in
 let lexbuf = Lexing.from_channel in_channel in
 let program = Parser.program Scanner.token lexbuf in
-print_programs Sys.argv.(1) ( translate (prog (fst program , snd program) ) ) 
+let _  = print_programs outfile ( translate (prog (fst program , snd program) ) ) in
+Printf.printf "Find the output in %s ...\n" outfile 

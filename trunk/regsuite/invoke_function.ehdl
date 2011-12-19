@@ -1,4 +1,4 @@
-const uint(1) en = 1;
+const int(1) en = 1;
 
 int(32) c adder(int(32) a, int(32) b) { 
 	

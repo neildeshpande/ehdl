@@ -5,7 +5,7 @@
 %token IF ELSE WHILE FOR
 %token ASN SEMI LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE COMMA CONST
 %token SWITCH CASE DEFAULT COLON POS ASYNC EOF
-%token <int> NUM INT UINT
+%token <int> NUM INT
 %token <string> ID
 
 /*Need to check precedence in C!*/
@@ -39,18 +39,16 @@ gdecl :
 
 bdecl :
   async_opt spec ID init_opt	  { { name = $3;
-				      size = fst $2;
+				      size = $2;
 				      init = $4;
-				      unsigned = snd $2;
 				      async = $1;
-                      isAssigned = Array.make (fst $2) false} }
+                      isAssigned = Array.make $2 false} }
 async_opt :
 		{ false }
 | ASYNC 	{ true }
 
 spec :
-  INT		{ ($1,false) }
-| UINT 		{ ($1, true) }
+  INT		{ $1 }
 
 init_opt :
 		{ 0 }
@@ -97,9 +95,8 @@ vdecl :
 
 adecl :
   async_opt spec ID LBRACKET NUM RBRACKET init_opt { ( { name = $3;
-					    	         size = fst $2;
+					    	         size = $2;
 					    	         init = $7;
-					    	         unsigned = snd $2;
 					    	         async = $1; 
                                      isAssigned = Array.make ($5) false}, $5 ) } /* setting the bitfield to the size of the array and not the size of the bus*/
 

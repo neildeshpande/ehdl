@@ -29,7 +29,6 @@ rule token = parse
 
 (* types keywords *)
 | "const"				{ CONST }
-| "uint("['0'-'9']+')' as lit	        { UINT(int_of_string (String.sub lit 5 (String.length lit - 6))) }
 
 | "int("['0'-'9']+')' as lit       	{ INT(int_of_string (String.sub lit 4 (String.length lit - 5))) }
 

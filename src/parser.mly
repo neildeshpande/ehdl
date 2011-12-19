@@ -1,6 +1,6 @@
 %{open Ast%}
 
-%token PLUS MINUS TIMES DIVIDE MODULO LT GT LTE GTE EQ NEQ 
+%token PLUS MINUS TIMES LT GT LTE GTE EQ NEQ 
 %token OR AND XOR SHL SHR NOT
 %token IF ELSE WHILE FOR
 %token ASN SEMI LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE COMMA CONST
@@ -127,8 +127,6 @@ other_expr :
 | other_expr PLUS other_expr			{ Binop($1, Add, $3) }
 | other_expr MINUS other_expr			{ Binop($1, Sub, $3) }
 | other_expr TIMES other_expr			{ Binop($1, Mul, $3) }
-| other_expr DIVIDE other_expr			{ Binop($1, Div, $3) } // get rid of divide and modulo 
-| other_expr MODULO other_expr			{ Binop($1, Mod, $3) }
 | other_expr LT other_expr			{ Binop($1, Lt, $3) }
 | other_expr GT other_expr			{ Binop($1, Gt, $3) }
 | other_expr LTE other_expr			{ Binop($1, Lte, $3) }

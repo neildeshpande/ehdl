@@ -1,0 +1,19 @@
+int(32) c main(int(32) a, int(32) b){
+int(32) ar[8] = 1;
+int(32) a0;
+int(32) a1;
+a0 = 0;
+a1 = a0 -2;
+
+ar[a(0:2)]= b;
+
+while (ar[b(0:1)] == a ){
+ar[2] = a + b;
+ar[5] = b - a && a;
+ar[1] = ar[5] >> 3;
+ar[3] = !ar[5] << 1;
+ar[0] = a1;
+POS(1);
+} 
+
+}

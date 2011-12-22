@@ -6,9 +6,10 @@ module StringMap = Map.Make(String);;
 (*USE THIS FUNCTION FOR TYPE CHECKING WHEN NEEDED!*)
 let bit_required x = 
 let s = if x < 0 then 1 else 0
-in let x = abs(x)
+in let x = abs x
 in let log2 y = int_of_float ( ((log (float_of_int y)) /. (log 2.)) )
-in ((log2 x) + 1 + s)
+in let res = ((log2 x) + 1 + s)
+in print_endline (string_of_int res); res
 
 exception Error of string  
 
@@ -207,7 +208,15 @@ let check_aasn env vbus size e1 e2 =
        			in (match t_e2 with
 				  Const -> (match ed2 with
 						  Num(v) -> if size_e2 > vbus.size
-       				 			then raise(Error("Bus size mismatch for "^vbus.name)) else ()
+       				 			then raise(Error("Bus size mismatch for "^vbus.name)) else ()	
+						| Unop(uop,ued) -> (match uop with
+									  Umin -> (match ued with
+											  Num(v) -> if size_e2 > vbus.size
+					       				 			then raise(Error("Bus size mismatch for "^vbus.name)) else ()	
+											| _ -> if size_e2 != vbus.size
+       				 								then raise(Error("Bus size mismatch for "^vbus.name)) else ()	)
+									| _ -> 	if size_e2 != vbus.size
+       				 						then raise(Error("Bus size mismatch for "^vbus.name)) else ()	)
 						| _ -> if size_e2 != vbus.size
        				 			then raise(Error("Bus size mismatch for "^vbus.name)) else ()	)
 				| _ ->	if size_e2 != vbus.size

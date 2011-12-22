@@ -5,8 +5,10 @@ module StringMap = Map.Make(String);;
 (*Auxiliary functions*)
 (*USE THIS FUNCTION FOR TYPE CHECKING WHEN NEEDED!*)
 let bit_required x = 
-let log2 y = int_of_float ( ((log (float_of_int y)) /. (log 2.)) )
-in ((log2 x) + 1)
+let s = if x < 0 then 1 else 0
+in let x = abs(x)
+in let log2 y = int_of_float ( ((log (float_of_int y)) /. (log 2.)) )
+in ((log2 x) + 1 + s)
 
 exception Error of string  
 

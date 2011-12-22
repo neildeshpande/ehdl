@@ -262,13 +262,13 @@ in let rec wcondeval e env asn_map cc= match e with
          )
 (* end of translate_wstmt *)
 
-(*While condition: always check the output of the loop*)
-in let wcs1, wcs2,_,_ = wcondeval wcond {sens_list=[]} Im.empty curr_fc
 
 (*Translating While loop*)
 in let rec build_while wstr str1 str2 asn_map prev_asn_map cc = function
 	  [] -> wstr, str1, str2, asn_map, prev_asn_map, cc
 	| (Pos(en))::tl -> (let sen1, sen2, _, _ = wcondeval en {sens_list=[]} asn_map cc
+			(*While condition: always check the output of the loop*)
+	               in let wcs1, wcs2,_,_ = wcondeval wcond {sens_list=[]} Im.empty cc
 		       in let (_,async) = get_asn curr_asn_map
 		       in let sync = get_nc_asn curr_asn_map asn_map
 		       in let (psync,_) = get_asn prev_asn_map

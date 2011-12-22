@@ -149,21 +149,6 @@ let check_array_dereference varray size e1 t1 s1 =
   | Num(v) -> if v > (size - 1) then raise(Error("Array index out of bound "^varray.name)) else()
   | _ -> if s1 > bit_required(size)
     		then print_endline ("Warning: possible array index out of bound: "^varray.name) else()
-
-(*ìlet check_array_dereference varray size e1 t1 s1 = 
-  match t1 with
-    Bus -> if s1 > bit_required(size)
-    		then raise(Error("Array index out of bound "^varray.name))
-    	  else()
-    | Const -> (
-               	match e1 with
-               		Num(v) -> if v > size
-               					then raise(Error("Array index out of bound "^varray.name))
-      						  else()
-    				| _ -> raise (Error("Const expected "^varray.name))
-                )
-    | _ -> raise (Error("Bus or Const expected "^varray.name))*)
-    
   
 let check_basn env vbus e1 =
  let _ = print_endline ("Checking variable "^vbus.name)
@@ -261,37 +246,7 @@ let check_aasn env vbus size e1 e2 =
        				 	then raise(Error("Bus size mismatch for "^vbus.name)) else ()	)                  			
       | _ -> raise (Error("Array index should be const or bus "^vbus.name)) 
         
-(*let check_aasn env vbus size e1 e2 = 
-  let(detail_e1,t_e1, size_e1) = e1
-  in match t_e1 with
-      Const -> 
-    			(match detail_e1 with
-         
-         			Num(v) -> if v > size 
-            						then raise(Error("Array index out of bound "^vbus.name)) 
-            					else() ;
-         					  if (vbus.isAssigned.(v) && not(env.scope.isWhile.(0)))
-            					then raise (Error("Array index has more than one driver "^vbus.name))
-          					  else vbus.isAssigned.(v) <- true;
-    						  let (_,t_e2, size_e2) = e2
-       						  in if size_e2 > vbus.size
-       				 			then raise(Error("Bus size mismatch for "^vbus.name))
-           					  else ()
-             		| _ -> raise(Error("Expected const")))
-      | Bus -> if(size_e1 > bit_required size)
-               	then raise (Error("Array Index out of bound "^vbus.name))
-               else();
-               for i = 0 to size-1 do if (vbus.isAssigned.(i) && not(env.scope.isWhile.(0)))
-      										then raise (Error("Array index has more than one driver "^vbus.name))
-                					else vbus.isAssigned.(i) <- true done ; 
-        		let (_,t_e2,size_e2) = e2
-        		in if size_e2 > vbus.size
-        			then raise (Error("Bus size mismatch for "^vbus.name))
-        		   else()
-                  			
-      | _ -> raise (Error("Array index should be const or bus "^vbus.name)) *)
-  
-    
+ 
 
 let check_subbus vbus x y =
   let (x,y) = if x < y then (x,y) else (y,x)
@@ -547,12 +502,6 @@ let rec chk_stmt function_table env = function
      in (* check_pos_expr e1;*)
     	Pos(e1)
   | Ast.Block(slist) ->
-    	(*(* New scopes: parent is the existing scope, start out empty *)
-		let new_scope = { parent = Some(env.scope); variables = [] }
-	    in
-        (* New environment: same, but with new symbol tables *)
-        let new_env = { scope = new_scope}
-        in *)
 	let run_chk_stmt (env : translation_environment) (actual : Ast.stmt) =
 	  let s1 = chk_stmt function_table env actual
 	    in s1
@@ -669,7 +618,6 @@ let func (env : translation_environment) (astfn : Ast.fdecl) tmp_ftable =
 			    fcalls = chk_calls; 
 			    fbod = chk_fbod; }           
         in let new_ftable = StringMap.add astfn.fname fobj tmp_ftable
-(* Uncomment to check if functions are added to the Function Table*)
 	in let _ = print_endline ("Added function "^astfn.fname)
 	  in new_ftable
 
@@ -686,9 +634,6 @@ let prog ((constlist : Ast.gdecl list), (funclist : Ast.fdecl list)) =
       let _ = check_basn dummy_env vbus (Num(value), Const, bit_required value)
       in (vbus, value, Const, Int_signal, true)
                           ) (List.rev constlist)
-(* Un-commeList.rev clistList.rev clistnt to print the list of constants name *)
-(*in let name_list = List.map (fun (sgnl,_,_,_) -> sgnl.name) clist
-in let _ = List.iter print_endline name_list*)
   in let global_scope = { parent = None; variables = List.rev clist; isIf = Array.make 2 false; isWhile = Array.make 1 false}
         in let global_env = { scope = global_scope }
 

@@ -283,11 +283,6 @@ in let rec build_while wstr str1 str2 asn_map prev_asn_map cc = function
 									with Not_found -> ""
 			in let _ = List.map chk_asn wsync
 			(*Find common sync assignments between curr_asn_map and while asn_map*)
-			(*in let nc_asn l asn = try let _ = (List.find (fun a -> a = asn) wsync) in l
-						      with Not_found -> asn::l
-			in let sync = List.fold_left nc_asn [] sync*)
-			
-
 			in let print_ccp1 (ap) = (function
 			| Basn(x,_) -> ap ^ x.name ^ "_r" ^ (string_of_int (cc+1)) ^ " <= " ^ x.name ^ "_r" ^ (string_of_int cc) ^ ";\n"
 			| Aasn(x,i,e1,_) -> (match e1 with (*Either e1 is a constant or the whole array is assigned!*)

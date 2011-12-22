@@ -21,6 +21,8 @@ architecture e_main of  main is
 
 type ar_type is array (0 to 7) of std_logic_vector(31 downto 0);
 signal ar_r0, ar_r1 : ar_type := (others => ieee.std_logic_arith.conv_std_logic_vector(1,32));
+signal a0_r0, a0_r1 : std_logic_vector(31 downto 0) := ieee.std_logic_arith.conv_std_logic_vector(0,32);
+signal a1_r0, a1_r1 : std_logic_vector(31 downto 0) := ieee.std_logic_arith.conv_std_logic_vector(0,32);
 signal c_r0, c_r1 : std_logic_vector(31 downto 0) := ieee.std_logic_arith.conv_std_logic_vector(0,32);
 signal b_r0, b_r1 : std_logic_vector(31 downto 0) := ieee.std_logic_arith.conv_std_logic_vector(0,32);
 signal a_r0, a_r1 : std_logic_vector(31 downto 0) := ieee.std_logic_arith.conv_std_logic_vector(0,32);
@@ -30,6 +32,14 @@ begin
 a_r0 <= a;
 b_r0 <= b;
 c <= c_r1;
+
+		a0_r0 <= ieee.std_logic_arith.conv_std_logic_vector(0,32);
+
+	process (a0_r0)
+	begin
+		a1_r0 <= ((a0_r0) - (2));
+
+	end process;
 
 
 	process (a_r0, b_r0)
@@ -41,9 +51,10 @@ c <= c_r1;
 --Pos--
 ar_r1(7) <= ar_r0(7);
 ar_r1(6) <= ar_r0(6);
-ar_r1(0) <= ar_r0(0);
 ar_r1(4) <= ar_r0(4);
 b_r1 <= b_r0;
+a1_r1 <= a1_r0;
+a0_r1 <= a0_r0;
 a_r1 <= a_r0;
 process(clk,rst)
 begin
@@ -52,6 +63,7 @@ ar_r1(5) <= ieee.std_logic_arith.conv_std_logic_vector(1,32);
 ar_r1(3) <= ieee.std_logic_arith.conv_std_logic_vector(1,32);
 ar_r1(2) <= ieee.std_logic_arith.conv_std_logic_vector(1,32);
 ar_r1(1) <= ieee.std_logic_arith.conv_std_logic_vector(1,32);
+ar_r1(0) <= ieee.std_logic_arith.conv_std_logic_vector(1,32);
 elsif clk'event and clk = '1' then
 if ((ar_r1(ieee.std_logic_unsigned.conv_integer(b_r1(1 downto 0)))) = (a_r1))then
 if 1 /= 0  then
@@ -59,6 +71,7 @@ if 1 /= 0  then
 		ar_r1(5)  <= ((b_r1) - (((a_r1) and (a_r1))));
 		ar_r1(1)  <= (to_stdlogicvector( to_bitvector(ar_r1(5)) srl (3) ));
 		ar_r1(3)  <= (to_stdlogicvector( to_bitvector((not ar_r1(5))) sll (1) ));
+		ar_r1(0)  <= a1_r1;
 end if;
 else
 if 1 /= 0  then
@@ -66,6 +79,7 @@ ar_r1(5) <= ar_r0(5);
 ar_r1(3) <= ar_r0(3);
 ar_r1(2) <= ar_r0(2);
 ar_r1(1) <= ar_r0(1);
+ar_r1(0) <= ar_r0(0);
 end if;
 end if;
 end if;

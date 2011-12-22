@@ -1,29 +1,24 @@
 /* emits all the prime numbers less than m. m must be less than 200
-as there is bounded buffer that is being used */
-int(32) primes main (int(32) m) { 
+as there is a bounded buffer of size 200 that is being used */
+(int(32) primes=2) main (int(32) m) { 
 	
 	int(1) a[200]; 
 	int(1) sig; 
 	int(32) n = 2;
-	int(32) k = 2; 
+	int(32) k = 2;
+	 
 	while (n <= m) {
 	      
 	    if ((a[n] == 0) && (k <= m))  {
 	      	 if (k == n) {   
-	      	    sig = 1;
+		      primes = n; 
 		 } else { 
 		   a[k] = 1; 
 		 } 
 		 k = k + n;    
-	    }else { 
-		 sig = 0; 
+	    }else {
 		 n = n + 1;
 		 k = n + 1;		      
-	    }      
-	   
-      	}  
-	      
-	POS(sig); 
-	primes = n;      
-
+	    }         
+      	}  	      
 }
